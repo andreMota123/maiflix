@@ -19,19 +19,20 @@ const app = express();
 
 const createDefaultAdmin = async () => {
     try {
-      const adminEmail = 'levitamota+adminfinal@gmail.com';
+      // ATUALIZAÇÃO CRÍTICA: O e-mail foi ajustado para corresponder ao que você está usando nos testes.
+      const adminEmail = 'levitamota+maiflix@gmail.com';
       const existingAdmin = await User.findOne({ email: adminEmail });
   
       if (!existingAdmin) {
         logger.info(`Nenhum administrador padrão encontrado com o email ${adminEmail}. Criando um novo...`);
         const adminUser = new User({
-          name: 'Admin',
+          name: 'Admin Final',
           email: adminEmail,
-          password: 'Andre9157$', // O hook 'pre-save' no model irá fazer o hash desta senha
+          password: 'Andre9157$', // A senha será criptografada pelo hook no User Model usando bcryptjs.
           role: 'admin',
           subscriptionStatus: 'active',
         });
-        // O método .save() é crucial aqui, pois aciona o hook de hash de senha no User Model.
+        // O método .save() aciona o hook de hash de senha, garantindo a consistência.
         await adminUser.save(); 
         logger.info('Usuário administrador padrão criado com sucesso.');
       } else {

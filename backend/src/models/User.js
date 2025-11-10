@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs'); // Usando bcryptjs
+// GARANTIA: Usando 'bcryptjs' de forma consistente, conforme definido no package.json.
+const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
   name: {
@@ -36,23 +37,26 @@ const userSchema = new mongoose.Schema({
   },
 }, { timestamps: true });
 
-// Hook (middleware) do Mongoose para criptografar a senha ANTES de salvar o documento.
+// Hook do Mongoose para criptografar a senha ANTES de salvar, usando bcryptjs.
+// É acionado automaticamente pelo método .save().
 userSchema.pre('save', async function(next) {
+  // Executa o código apenas se a senha foi modificada (ou é um novo usuário)
   if (!this.isModified('password')) {
     return next();
   }
+  
+  // Gera o "salt" e faz o hash da senha de forma segura com bcryptjs.
   const salt = await bcrypt.genSalt(12);
   this.password = await bcrypt.hash(this.password, salt);
   next();
 });
 
-// --- A CORREÇÃO ESTÁ AQUI ---
-// O método de instância precisa ser ASYNC e usar AWAIT.
-userSchema.methods.comparePassword = async function(candidatePassword) {
-  // 'this.password' refere-se à senha com hash do documento do usuário
-  return await bcrypt.compare(candidatePassword, this.password);
+// Método de instância para comparar a senha fornecida com a senha com hash no banco de dados, usando bcryptjs.
+userSchema.methods.comparePassword = function(candidatePassword) {
+  // 'this.password' refere-se à senha com hash do documento do usuário.
+  // bcrypt.compare retorna uma promessa, que será resolvida com 'await' no controller.
+  return bcrypt.compare(candidatePassword, this.password);
 };
-// --- FIM DA CORREÇÃO ---
 
 const User = mongoose.model('User', userSchema);
 module.exports = User;

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { Input } from '../components/ui/Input';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
@@ -36,30 +37,24 @@ const LoginPage = () => {
         <p className="text-center text-gray-400 mb-8">Seu universo de criatividade.</p>
         
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1">Email</label>
-            <input 
-              id="email" 
-              type="email" 
-              value={email} 
-              onChange={e => setEmail(e.target.value)} 
-              required 
-              className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500" 
-              autoComplete="email"
-            />
-          </div>
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">Senha</label>
-            <input 
-              id="password" 
-              type="password" 
-              value={password} 
-              onChange={e => setPassword(e.target.value)} 
-              required 
-              className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500" 
-              autoComplete="current-password"
-            />
-          </div>
+          <Input 
+            label="Email"
+            id="email" 
+            type="email" 
+            value={email} 
+            onChange={e => setEmail(e.target.value)} 
+            required 
+            autoComplete="email"
+          />
+          <Input 
+            label="Senha"
+            id="password" 
+            type="password" 
+            value={password} 
+            onChange={e => setPassword(e.target.value)} 
+            required 
+            autoComplete="current-password"
+          />
           
           {error && <p className="text-red-400 text-sm text-center pt-2">{error}</p>}
           

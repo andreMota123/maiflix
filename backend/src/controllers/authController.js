@@ -12,7 +12,8 @@ exports.login = async (req, res, next) => {
     // 1. Busca o usuário e inclui a senha (que por padrão é oculta).
     const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
 
-    // 2. Verifica se o usuário existe e se a senha corresponde usando o método seguro `comparePassword`.
+    // 2. Verifica se o usuário existe e se a senha corresponde.
+    // O 'await' aqui é crucial, pois user.comparePassword (usando bcryptjs) retorna uma promessa.
     if (!user || !(await user.comparePassword(password))) {
       return res.status(401).json({ message: 'Credenciais inválidas.' });
     }
@@ -30,8 +31,7 @@ exports.login = async (req, res, next) => {
     // 5. Remove a senha do objeto antes de enviar a resposta.
     user.password = undefined;
 
-    // 6. Envia o token e os dados do usuário (incluindo a 'role').
-    // O frontend usará a 'role' para decidir para qual painel redirecionar.
+    // 6. Envia o token e os dados do usuário.
     res.status(200).json({
       token,
       user,

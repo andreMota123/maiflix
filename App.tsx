@@ -2,7 +2,7 @@
 
 import React, { useState, FC, useRef, useEffect } from 'react';
 import { Page, User, Post, Product, Class, AdminPost, Comment, Notification, Banner } from './types';
-import { HomeIcon, UsersIcon, InfoIcon, FileIcon, UserCircleIcon, HeartIcon, CommentIcon, TrashIcon, BellIcon, WhatsappIcon, PhotoIcon, VideoIcon, LogoutIcon, EditIcon, UserPlusIcon, LockClosedIcon, LockOpenIcon, UserGroupIcon, BoxIcon, ChevronLeftIcon, ChevronRightIcon, Cog6ToothIcon, BookmarkIcon } from './components/Icons';
+import { HomeIcon, UsersIcon, InfoIcon, FileIcon, UserCircleIcon, HeartIcon, CommentIcon, TrashIcon, BellIcon, WhatsappIcon, PhotoIcon, VideoIcon, LogoutIcon, EditIcon, UserPlusIcon, LockClosedIcon, LockOpenIcon, UserGroupIcon, BoxIcon, ChevronLeftIcon, ChevronRightIcon, Cog6ToothIcon, BookmarkIcon, EyeIcon, EyeSlashIcon } from './components/Icons';
 
 // --- ERROR BOUNDARY (para produção) ---
 
@@ -15,11 +15,8 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // FIX: Initialize state in the constructor to ensure `this.props` is available. The original class field declaration was not being correctly handled, leading to an error where `this.props` was considered non-existent.
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false };
-  }
+  // FIX: Initialized state directly as a class property to resolve errors where `this.state` was not recognized.
+  state: ErrorBoundaryState = { hasError: false };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     // Atualiza o estado para que a próxima renderização mostre a UI de fallback.
@@ -189,12 +186,34 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
 }
 
-const Input: FC<InputProps> = ({ label, id, ...props }) => (
-  <div className="w-full">
-    <label htmlFor={id} className="block text-sm font-medium text-brand-text-light mb-1">{label}</label>
-    <input id={id} className="w-full px-3 py-2 bg-brand-bg border border-brand-secondary rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary" {...props} />
-  </div>
-);
+const Input: FC<InputProps> = ({ label, id, type, ...props }) => {
+    const [showPassword, setShowPassword] = useState(false);
+    const isPassword = type === 'password';
+
+    return (
+        <div className="w-full">
+            <label htmlFor={id} className="block text-sm font-medium text-brand-text-light mb-1">{label}</label>
+            <div className="relative">
+                <input
+                    id={id}
+                    type={isPassword ? (showPassword ? 'text' : 'password') : type}
+                    className="w-full pl-3 pr-10 py-2 bg-brand-bg border border-brand-secondary rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                    {...props}
+                />
+                {isPassword && (
+                    <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-0 flex items-center pr-3 text-brand-text-light hover:text-white focus:outline-none"
+                        aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                    >
+                        {showPassword ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+};
 
 // --- PAGE & LAYOUT COMPONENTS ---
 
@@ -214,27 +233,24 @@ const LoginPage: FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
         <div className="min-h-screen flex items-center justify-center bg-brand-bg p-4">
             <div className="w-full max-w-md bg-brand-surface p-8 rounded-2xl shadow-lg">
                 <h1 className="text-4xl font-bold text-center text-brand-primary mb-2">Maiflix</h1>
-                <p className="text-center text-brand-text-light mb-6">Seu universo de criatividade.</p>
-                
-                <div className="flex border-b border-brand-secondary mb-6">
-                    <button onClick={() => setMode('user')} className={`flex-1 py-2 text-center font-semibold transition-colors ${mode === 'user' ? 'text-brand-primary border-b-2 border-brand-primary' : 'text-brand-text-light hover:text-white'}`}>
-                        Assinante
-                    </button>
-                    <button onClick={() => setMode('admin')} className={`flex-1 py-2 text-center font-semibold transition-colors ${mode === 'admin' ? 'text-brand-primary border-b-2 border-brand-primary' : 'text-brand-text-light hover:text-white'}`}>
-                        Administrador
-                    </button>
-                </div>
+                <p className="text-center text-brand-text-light mb-8">
+                    {mode === 'user' ? 'Login do Assinante' : 'Acesso Administrativo'}
+                </p>
 
                 <form onSubmit={handleLogin} className="space-y-6">
                     <Input label="Email" id="email" type="email" defaultValue={mode === 'user' ? MOCK_USERS[0].email : MOCK_ADMIN.email} key={mode} required />
                     <Input label="Senha" id="password" type="password" defaultValue="password" required />
                     <Button type="submit" className="w-full !py-3 !text-lg">Entrar</Button>
-                    {mode === 'user' && (
-                        <div className="text-center">
-                            <a href="#" className="text-sm text-brand-text-light hover:text-brand-primary transition">Esqueceu a senha?</a>
-                        </div>
-                    )}
                 </form>
+                
+                <div className="text-center mt-6">
+                    <button
+                        onClick={() => setMode(prevMode => prevMode === 'user' ? 'admin' : 'user')}
+                        className="bg-transparent border-none text-sm text-brand-text-light hover:text-brand-primary transition-colors cursor-pointer"
+                    >
+                        {mode === 'user' ? 'Acessar como Administrador' : 'Acessar como Assinante'}
+                    </button>
+                </div>
             </div>
         </div>
     );
@@ -1047,7 +1063,7 @@ const AdminProductsPage: FC<{
                         </div>
                         <div>
                             <label htmlFor="prod-type" className="block text-sm font-medium text-brand-text-light mb-1">Tipo de Arquivo</label>
-                            {/* FIX: A type assertion is used here to ensure the string from the event target's value conforms to the expected 'SVG' | 'PDF' | 'STUDIO' type. */}
+                            {/* FIX: A type assertion ensures the string from the event target's value conforms to the expected literal type. */}
                             <select id="prod-type" value={fileType} onChange={e => setFileType(e.target.value as 'SVG' | 'PDF' | 'STUDIO')} className="w-full px-3 py-2 bg-brand-bg border border-brand-secondary rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary">
                                 <option value="SVG">SVG</option>
                                 <option value="PDF">PDF</option>
@@ -1476,14 +1492,12 @@ const App: FC = () => {
     const [carouselDuration, setCarouselDuration] = useState(5000); // 5 seconds
     const [colors, setColors] = useState<Record<string, string>>(() => {
         const savedColors = localStorage.getItem('maiflix-colors');
-        // FIX: JSON.parse can return `unknown`, which is not assignable to `Record<string, string>`.
-        // Add a try-catch block and a type check to safely parse and initialize the state.
+        // FIX: Safely parse colors from localStorage. JSON.parse can throw an error or return an `unknown` type, so validation is necessary.
         if (savedColors) {
             try {
                 const parsed = JSON.parse(savedColors);
                 if (typeof parsed === 'object' && parsed !== null) {
-                    // This is still an unsafe cast, but it satisfies TypeScript.
-                    // For production, a schema validation library like Zod would be safer.
+                    // This is a basic check. For production, a schema validation library like Zod would be safer.
                     return parsed as Record<string, string>;
                 }
             } catch (e) {
@@ -1635,16 +1649,13 @@ const App: FC = () => {
             case Page.Comunidade:
                 return <CommunityPage currentUser={currentUser} onAddNotification={handleAddNotification} />;
             case Page.Users:
-                // FIX: Use a ternary operator to return null instead of false when the condition is not met, ensuring a valid ReactNode is always returned.
-                return currentUser.role === 'admin' ? <AdminUsersPage users={users.filter(u => u.role === 'user')} onAddUser={handleAddUser} onUpdateUser={handleUpdateUser as any} onUpdateUserStatus={handleUpdateUserStatus} onDeleteUser={handleDeleteUser} /> : null;
+                // FIX: Removed `as any` by using a wrapper function to ensure type compatibility for the onUpdateUser prop.
+                return currentUser.role === 'admin' ? <AdminUsersPage users={users.filter(u => u.role === 'user')} onAddUser={handleAddUser} onUpdateUser={(userId, updates) => handleUpdateUser(userId, updates)} onUpdateUserStatus={handleUpdateUserStatus} onDeleteUser={handleDeleteUser} /> : null;
             case Page.Products:
-                // FIX: Use a ternary operator to return null instead of false when the condition is not met, ensuring a valid ReactNode is always returned.
                 return currentUser.role === 'admin' ? <AdminProductsPage products={products} onAddProduct={handleAddProduct} onUpdateProduct={handleUpdateProduct} onDeleteProduct={handleDeleteProduct} /> : null;
             case Page.Banners:
-                // FIX: Use a ternary operator to return null instead of false when the condition is not met, ensuring a valid ReactNode is always returned.
                 return currentUser.role === 'admin' ? <AdminBannersPage banners={banners} carouselDuration={carouselDuration} onAddBanner={handleAddBanner} onUpdateBanner={handleUpdateBanner} onDeleteBanner={handleDeleteBanner} onUpdateCarouselDuration={setCarouselDuration} /> : null;
             case Page.Settings:
-                // FIX: Use a ternary operator to return null instead of false when the condition is not met, ensuring a valid ReactNode is always returned.
                 return currentUser.role === 'admin' ? <AdminSettingsPage currentLink={whatsappLink} onUpdateLink={setWhatsappLink} colors={colors} onUpdateColors={handleUpdateColors} onResetColors={handleResetColors} /> : null;
             case Page.Perfil:
                  return <ProfilePage currentUser={currentUser} posts={MOCK_POSTS} classes={classes} onLogout={handleLogout} onUpdateUser={handleUpdateUser} />;
@@ -1700,7 +1711,7 @@ const App: FC = () => {
 
     const BottomNav: FC = () => {
         // FIX: Create a variable with an explicit type to ensure TypeScript correctly infers the type of `item` inside the `.map()` function.
-        const navItems = currentUser.role === 'user' ? navItemsUser : navItemsAdmin;
+        const navItems: NavItem[] = currentUser.role === 'user' ? navItemsUser : navItemsAdmin;
         return (
             <nav className="fixed bottom-0 left-0 right-0 bg-brand-surface shadow-[0_-2px_10px_rgba(0,0,0,0.3)] z-40 md:hidden">
                 <div className="flex justify-around">
@@ -1722,7 +1733,7 @@ const App: FC = () => {
 
     const SideNav: FC = () => {
         // FIX: Create a variable with an explicit type to ensure TypeScript correctly infers the type of `item` inside the `.map()` function.
-        const navItems = currentUser.role === 'user' ? navItemsUser : navItemsAdmin;
+        const navItems: NavItem[] = currentUser.role === 'user' ? navItemsUser : navItemsAdmin;
         return (
             <aside className="hidden md:block w-64 bg-brand-surface p-4 flex-shrink-0 overflow-y-auto">
                 <nav className="flex flex-col space-y-2">
