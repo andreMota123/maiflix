@@ -15,8 +15,11 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // FIX: Initialize state directly as a class property to ensure it's available throughout the component lifecycle.
-  state: ErrorBoundaryState = { hasError: false };
+  // FIX: Initialize state in the constructor to ensure `this.props` is available. The original class field declaration was not being correctly handled, leading to an error where `this.props` was considered non-existent.
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     // Atualiza o estado para que a próxima renderização mostre a UI de fallback.
@@ -1473,7 +1476,21 @@ const App: FC = () => {
     const [carouselDuration, setCarouselDuration] = useState(5000); // 5 seconds
     const [colors, setColors] = useState<Record<string, string>>(() => {
         const savedColors = localStorage.getItem('maiflix-colors');
-        return savedColors ? JSON.parse(savedColors) : DEFAULT_COLORS;
+        // FIX: JSON.parse can return `unknown`, which is not assignable to `Record<string, string>`.
+        // Add a try-catch block and a type check to safely parse and initialize the state.
+        if (savedColors) {
+            try {
+                const parsed = JSON.parse(savedColors);
+                if (typeof parsed === 'object' && parsed !== null) {
+                    // This is still an unsafe cast, but it satisfies TypeScript.
+                    // For production, a schema validation library like Zod would be safer.
+                    return parsed as Record<string, string>;
+                }
+            } catch (e) {
+                console.error("Could not parse colors from local storage:", e);
+            }
+        }
+        return DEFAULT_COLORS;
     });
 
     useEffect(() => {

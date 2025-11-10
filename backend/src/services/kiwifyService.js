@@ -1,43 +1,38 @@
 const User = require('../models/User');
 const logger = require('../utils/logger');
 
-// Função para ATIVAR ou CRIAR assinatura de um usuário
+// Função para ativar a assinatura de um usuário
 const activateSubscription = async (customerEmail) => {
   if (!customerEmail) {
     logger.warn("Tentativa de ativar assinatura sem email do cliente.");
     return;
   }
-
-  const email = customerEmail.toLowerCase();
-  
-  // AQUI ESTÁ A SENHA PADRÃO DO ASSINANTE!
-  const defaultPassword = 'mudar123'; 
-
   try {
-    let user = await User.findOne({ email: email });
+    const email = customerEmail.toLowerCase();
+    let user = await User.findOne({ email });
 
     if (user) {
-      // 1. Usuário já existe, apenas reativa a assinatura
+      // Se o usuário já existe, apenas atualiza o status da assinatura
       user.subscriptionStatus = 'active';
-      await user.save();
-      logger.info('Assinatura RE-ativada com sucesso', { customerEmail: email });
+      await user.save(); // Usar .save() para garantir a consistência dos hooks, se houver
+      logger.info('Assinatura ativada com sucesso para usuário existente', { customerEmail: email, userId: user._id });
     } else {
-      // 2. Usuário NÃO existe, precisamos CRIAR um novo
-      logger.info('Novo usuário. Criando conta de assinante...', { customerEmail: email });
-      
+      // Se o usuário não existe, cria um novo com uma senha padrão.
       const newUser = new User({
         email: email,
-        password: defaultPassword, // O hook pre-save no User.js vai criptografar isso
-        role: 'subscriber', // Define a função como assinante
-        subscriptionStatus: 'active'
+        name: 'Novo Assinante', // Um nome padrão que o usuário poderá alterar depois
+        password: 'mudar123',   // Senha padrão que SERÁ CRIPTOGRAFADA pelo hook pre-save.
+        subscriptionStatus: 'active',
+        role: 'user',
       });
-      
-      await newUser.save();
-      logger.info('Novo assinante criado com sucesso.', { customerEmail: email });
+      // A chamada a .save() aciona o hook de hash de senha no model, garantindo a segurança.
+      await newUser.save(); 
+      logger.info(`Webhook 'order.paid' recebido, novo usuário criado e assinatura ativada.`, { customerEmail: email, userId: newUser._id });
     }
+
   } catch (error) {
-    logger.error('Erro ao ativar/criar assinatura no banco de dados.', {
-      customerEmail: email,
+    logger.error('Erro ao ativar/criar assinatura via webhook.', { 
+      customerEmail, 
       errorMessage: error.message,
       stack: error.stack
     });
@@ -51,12 +46,14 @@ const deactivateSubscription = async (customerEmail) => {
     return;
   }
   try {
+    // Usar findOneAndUpdate é seguro aqui porque não estamos alterando a senha.
     const user = await User.findOneAndUpdate(
       { email: customerEmail.toLowerCase() },
-      { subscriptionStatus: 'inactive' }
+      { subscriptionStatus: 'inactive' },
+      { new: true }
     );
     if (user) {
-      logger.info('Assinatura desativada com sucesso', { customerEmail });
+      logger.info('Assinatura desativada com sucesso', { customerEmail, userId: user._id });
     } else {
       logger.warn('Webhook de cancelamento/reembolso recebido, mas usuário não foi encontrado.', { customerEmail });
     }

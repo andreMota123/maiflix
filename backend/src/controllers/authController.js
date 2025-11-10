@@ -9,24 +9,29 @@ exports.login = async (req, res, next) => {
   }
 
   try {
-    const user = await User.findOne({ email }).select('+password');
+    // 1. Busca o usuário e inclui a senha (que por padrão é oculta).
+    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
 
+    // 2. Verifica se o usuário existe e se a senha corresponde usando o método seguro `comparePassword`.
     if (!user || !(await user.comparePassword(password))) {
       return res.status(401).json({ message: 'Credenciais inválidas.' });
     }
 
-    // Admin users bypass the subscription status check
+    // 3. Verifica a assinatura (admins pulam esta verificação).
     if (user.role !== 'admin' && user.subscriptionStatus !== 'active') {
       return res.status(403).json({ message: 'Acesso negado. Sua assinatura não está ativa.' });
     }
 
+    // 4. Cria o token JWT.
     const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
       expiresIn: '7d',
     });
     
-    // Ensure password is not sent in the response
+    // 5. Remove a senha do objeto antes de enviar a resposta.
     user.password = undefined;
 
+    // 6. Envia o token e os dados do usuário (incluindo a 'role').
+    // O frontend usará a 'role' para decidir para qual painel redirecionar.
     res.status(200).json({
       token,
       user,
@@ -45,7 +50,7 @@ exports.checkSubscription = async (req, res, next) => {
       return res.status(404).json({ message: 'Usuário não encontrado.' });
     }
     
-    // Admin users are always considered "subscribed"
+    // Usuários administradores são sempre considerados "inscritos"
     if (user.role !== 'admin' && user.subscriptionStatus !== 'active') {
         return res.status(403).json({ message: 'Assinatura inativa.', isSubscribed: false });
     }
