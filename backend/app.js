@@ -20,7 +20,7 @@ const app = express();
 const createDefaultAdmin = async () => {
     try {
       // ATUALIZAÇÃO CRÍTICA: O e-mail foi ajustado para corresponder ao que você está usando nos testes.
-      const adminEmail = 'levitamota+maiflix@gmail.com';
+      const adminEmail = 'levitamota+adminfinal@gmail.com';
       const existingAdmin = await User.findOne({ email: adminEmail });
   
       if (!existingAdmin) {
