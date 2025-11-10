@@ -9,6 +9,7 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const path = require('path'); // Importar o módulo 'path'
 const logger = require('./src/utils/logger');
+const User = require('./src/models/User');
 
 const authRoutes = require('./src/routes/authRoutes');
 const webhookRoutes = require('./src/routes/webhookRoutes');
@@ -16,9 +17,36 @@ const protectedRoutes = require('./src/routes/protectedRoutes');
 
 const app = express();
 
+const createDefaultAdmin = async () => {
+    try {
+      const adminEmail = 'levitamota@gmail.com';
+      const existingAdmin = await User.findOne({ email: adminEmail });
+  
+      if (!existingAdmin) {
+        const adminUser = new User({
+          name: 'Admin',
+          email: adminEmail,
+          password: 'Andre9157$', // O hook pre-save no model irá fazer o hash
+          role: 'admin',
+          subscriptionStatus: 'active',
+        });
+        await adminUser.save();
+        logger.info('Usuário administrador padrão criado com sucesso.');
+      }
+    } catch (error) {
+      logger.error('Erro ao criar usuário administrador padrão.', {
+        message: error.message,
+        stack: error.stack,
+      });
+    }
+};
+
 // --- Conexão com o Banco de Dados ---
 mongoose.connect(process.env.DATABASE_URL)
-  .then(() => logger.info("Conectado ao MongoDB com sucesso!"))
+  .then(() => {
+    logger.info("Conectado ao MongoDB com sucesso!");
+    createDefaultAdmin();
+  })
   .catch(err => {
     logger.error("Erro fatal ao conectar ao MongoDB. A aplicação será encerrada.", {
       message: err.message,

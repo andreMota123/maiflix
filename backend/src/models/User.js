@@ -2,6 +2,10 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+  },
   email: {
     type: String,
     required: true,
@@ -14,10 +18,21 @@ const userSchema = new mongoose.Schema({
     required: true,
     select: false, // Não retorna a senha em queries por padrão
   },
+  role: {
+    type: String,
+    enum: ['user', 'admin'],
+    default: 'user',
+  },
   subscriptionStatus: {
     type: String,
     enum: ['active', 'inactive', 'expired'],
     default: 'inactive',
+  },
+  avatarUrl: {
+    type: String,
+    default: function() {
+        return `https://i.pravatar.cc/150?u=${this.email}`;
+    }
   },
 }, { timestamps: true });
 

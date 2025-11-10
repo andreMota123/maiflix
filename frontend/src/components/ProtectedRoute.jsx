@@ -2,7 +2,7 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
-// FIX: Update JSDoc to use @type for better TypeScript interoperability in .jsx files. This ensures the 'children' prop is correctly typed.
+// FIX: Added a JSDoc type definition to ensure TypeScript can correctly infer the type of the 'children' prop for this functional component within a .jsx file.
 /**
  * @type {React.FC<{ children: React.ReactNode }>}
  */

@@ -1,4 +1,5 @@
 
+
 import React, { useState, FC, useRef, useEffect } from 'react';
 import { Page, User, Post, Product, Class, AdminPost, Comment, Notification, Banner } from './types';
 import { HomeIcon, UsersIcon, InfoIcon, FileIcon, UserCircleIcon, HeartIcon, CommentIcon, TrashIcon, BellIcon, WhatsappIcon, PhotoIcon, VideoIcon, LogoutIcon, EditIcon, UserPlusIcon, LockClosedIcon, LockOpenIcon, UserGroupIcon, BoxIcon, ChevronLeftIcon, ChevronRightIcon, Cog6ToothIcon, BookmarkIcon } from './components/Icons';
@@ -14,11 +15,8 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // FIX: Initialize state in the constructor to resolve potential typing issues with 'this.state' or 'this.props'.
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false };
-  }
+  // FIX: Initialize state directly as a class property to ensure it's available throughout the component lifecycle.
+  state: ErrorBoundaryState = { hasError: false };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     // Atualiza o estado para que a próxima renderização mostre a UI de fallback.
@@ -1046,7 +1044,7 @@ const AdminProductsPage: FC<{
                         </div>
                         <div>
                             <label htmlFor="prod-type" className="block text-sm font-medium text-brand-text-light mb-1">Tipo de Arquivo</label>
-                            {/* FIX: Use a proper type assertion for the select input's onChange event to ensure type safety. */}
+                            {/* FIX: A type assertion is used here to ensure the string from the event target's value conforms to the expected 'SVG' | 'PDF' | 'STUDIO' type. */}
                             <select id="prod-type" value={fileType} onChange={e => setFileType(e.target.value as 'SVG' | 'PDF' | 'STUDIO')} className="w-full px-3 py-2 bg-brand-bg border border-brand-secondary rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary">
                                 <option value="SVG">SVG</option>
                                 <option value="PDF">PDF</option>

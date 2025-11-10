@@ -4,7 +4,7 @@ import api from '../services/api';
 
 const AuthContext = createContext(null);
 
-// FIX: Update JSDoc to use @type for better TypeScript interoperability in .jsx files. This ensures the 'children' prop is correctly typed.
+// FIX: Added a JSDoc type definition to ensure TypeScript can correctly infer the type of the 'children' prop for this functional component within a .jsx file.
 /**
  * @type {React.FC<{ children: React.ReactNode }>}
  */
@@ -13,25 +13,30 @@ export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
 
   const verifyUserSubscription = useCallback(async () => {
-    if (!auth.token) {
+    const token = localStorage.getItem('maiflix_token');
+    if (!token) {
       setAuth({ token: null, user: null, loading: false });
       return;
     }
     try {
       const { data } = await api.get('/check-subscription');
       if (data.isSubscribed) {
-        setAuth({ token: auth.token, user: { isSubscribed: true }, loading: false });
+        setAuth({ token, user: data.user, loading: false });
       } else {
+        // This case should not be hit with new backend logic, but kept for safety
         localStorage.removeItem('maiflix_token');
         setAuth({ token: null, user: null, loading: false });
         navigate('/blocked');
       }
     } catch (error) {
-      console.error("Erro ao verificar assinatura, fazendo logout.", error);
+      console.error("Erro ao verificar sessão.", error.response?.data?.message || error.message);
       localStorage.removeItem('maiflix_token');
       setAuth({ token: null, user: null, loading: false });
+      if (error.response?.status === 403) {
+        navigate('/blocked');
+      }
     }
-  }, [auth.token, navigate]);
+  }, [navigate]);
 
   useEffect(() => {
     verifyUserSubscription();
@@ -40,7 +45,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     const { data } = await api.post('/auth/login', { email, password });
     localStorage.setItem('maiflix_token', data.token);
-    setAuth({ token: data.token, user: { isSubscribed: true }, loading: false });
+    setAuth({ token: data.token, user: data.user, loading: false });
   };
 
   const logout = () => {
