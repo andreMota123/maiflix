@@ -19,7 +19,7 @@ const app = express();
 
 const createDefaultAdmin = async () => {
     try {
-      const adminEmail = 'levitamota@gmail.com';
+      const adminEmail = 'levitamota+admin@gmail.com';
       const existingAdmin = await User.findOne({ email: adminEmail });
   
       if (!existingAdmin) {
