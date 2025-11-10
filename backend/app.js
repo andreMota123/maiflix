@@ -10,6 +10,7 @@ const mongoose = require('mongoose');
 const path = require('path'); // Importar o módulo 'path'
 const logger = require('./src/utils/logger');
 const User = require('./src/models/User');
+const bcrypt = require('bcrypt'); // Importação necessária
 
 const authRoutes = require('./src/routes/authRoutes');
 const webhookRoutes = require('./src/routes/webhookRoutes');
@@ -18,27 +19,34 @@ const protectedRoutes = require('./src/routes/protectedRoutes');
 const app = express();
 
 const createDefaultAdmin = async () => {
-    try {
-      const adminEmail = 'levitamota+admin@gmail.com';
-      const existingAdmin = await User.findOne({ email: adminEmail });
-  
-      if (!existingAdmin) {
-        const adminUser = new User({
-          name: 'Admin',
-          email: adminEmail,
-          password: 'Andre9157$', // O hook pre-save no model irá fazer o hash
-          role: 'admin',
-          subscriptionStatus: 'active',
-        });
-        await adminUser.save();
-        logger.info('Usuário administrador padrão criado com sucesso.');
-      }
-    } catch (error) {
-      logger.error('Erro ao criar usuário administrador padrão.', {
-        message: error.message,
-        stack: error.stack,
+  try {
+    // MUDANÇA 1: Novo email para forçar a criação
+    const adminEmail = 'levitamota+admin2@gmail.com';
+    const existingAdmin = await User.findOne({ email: adminEmail });
+
+    if (!existingAdmin) {
+      
+      // MUDANÇA 2: Criptografar a senha manualmente ANTES de salvar
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash('Andre9157$', salt);
+
+      const adminUser = new User({
+        name: 'Admin',
+        email: adminEmail,
+        password: hashedPassword, // Salva a senha já criptografada
+        role: 'admin',
+        subscriptionStatus: 'active',
       });
+      await adminUser.save();
+      logger.info('Usuário administrador padrão criado com sucesso.');
+    
     }
+  } catch (error) {
+    logger.error('Erro ao criar usuário administrador padrão.', {
+      message: error.message,
+      stack: error.stack,
+    });
+  }
 };
 
 // --- Conexão com o Banco de Dados ---
