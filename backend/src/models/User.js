@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcryptjs'); // Usando bcryptjs
 
 const userSchema = new mongoose.Schema({
   name: {
@@ -37,25 +37,22 @@ const userSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Hook (middleware) do Mongoose para criptografar a senha ANTES de salvar o documento.
-// Este hook é acionado AUTOMATICAMENTE sempre que o método .save() é chamado em uma instância de User.
 userSchema.pre('save', async function(next) {
-  // Executa o código apenas se a senha foi modificada (ou é um novo usuário)
   if (!this.isModified('password')) {
     return next();
   }
-  
-  // Gera o "salt" e faz o hash da senha de forma segura.
   const salt = await bcrypt.genSalt(12);
   this.password = await bcrypt.hash(this.password, salt);
   next();
 });
 
-// Método de instância para comparar a senha fornecida com a senha com hash no banco de dados.
-// Este é o método correto e seguro para verificar o login.
-userSchema.methods.comparePassword = function(candidatePassword) {
+// --- A CORREÇÃO ESTÁ AQUI ---
+// O método de instância precisa ser ASYNC e usar AWAIT.
+userSchema.methods.comparePassword = async function(candidatePassword) {
   // 'this.password' refere-se à senha com hash do documento do usuário
-  return bcrypt.compare(candidatePassword, this.password);
+  return await bcrypt.compare(candidatePassword, this.password);
 };
+// --- FIM DA CORREÇÃO ---
 
 const User = mongoose.model('User', userSchema);
 module.exports = User;
