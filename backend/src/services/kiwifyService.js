@@ -1,26 +1,43 @@
 const User = require('../models/User');
 const logger = require('../utils/logger');
 
-// Função para ativar a assinatura de um usuário
+// Função para ATIVAR ou CRIAR assinatura de um usuário
 const activateSubscription = async (customerEmail) => {
   if (!customerEmail) {
     logger.warn("Tentativa de ativar assinatura sem email do cliente.");
     return;
   }
+
+  const email = customerEmail.toLowerCase();
+  
+  // AQUI ESTÁ A SENHA PADRÃO DO ASSINANTE!
+  const defaultPassword = 'mudar123'; 
+
   try {
-    const user = await User.findOneAndUpdate(
-      { email: customerEmail.toLowerCase() },
-      { subscriptionStatus: 'active' },
-      { new: true, upsert: false } // upsert: false -> não cria um novo usuário, apenas atualiza um existente
-    );
+    let user = await User.findOne({ email: email });
+
     if (user) {
-      logger.info('Assinatura ativada com sucesso', { customerEmail, userId: user._id });
+      // 1. Usuário já existe, apenas reativa a assinatura
+      user.subscriptionStatus = 'active';
+      await user.save();
+      logger.info('Assinatura RE-ativada com sucesso', { customerEmail: email });
     } else {
-      logger.warn(`Webhook 'order.paid' recebido, mas usuário não encontrado no banco de dados.`, { customerEmail });
+      // 2. Usuário NÃO existe, precisamos CRIAR um novo
+      logger.info('Novo usuário. Criando conta de assinante...', { customerEmail: email });
+      
+      const newUser = new User({
+        email: email,
+        password: defaultPassword, // O hook pre-save no User.js vai criptografar isso
+        role: 'subscriber', // Define a função como assinante
+        subscriptionStatus: 'active'
+      });
+      
+      await newUser.save();
+      logger.info('Novo assinante criado com sucesso.', { customerEmail: email });
     }
   } catch (error) {
-    logger.error('Erro ao ativar assinatura no banco de dados.', { 
-      customerEmail, 
+    logger.error('Erro ao ativar/criar assinatura no banco de dados.', {
+      customerEmail: email,
       errorMessage: error.message,
       stack: error.stack
     });
@@ -39,7 +56,7 @@ const deactivateSubscription = async (customerEmail) => {
       { subscriptionStatus: 'inactive' }
     );
     if (user) {
-      logger.info('Assinatura desativada com sucesso', { customerEmail, userId: user._id });
+      logger.info('Assinatura desativada com sucesso', { customerEmail });
     } else {
       logger.warn('Webhook de cancelamento/reembolso recebido, mas usuário não foi encontrado.', { customerEmail });
     }

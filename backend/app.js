@@ -1,4 +1,4 @@
-// Carrega variáveis de ambiente em desenvolvimento. Em produção (cPanel), elas são injetadas.
+// Carrega variáveis de ambiente
 if (process.env.NODE_ENV !== 'production') {
   require('dotenv').config();
 }
@@ -7,10 +7,10 @@ const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
 const mongoose = require('mongoose');
-const path = require('path'); // Importar o módulo 'path'
+const path = require('path');
 const logger = require('./src/utils/logger');
 const User = require('./src/models/User');
-const bcrypt = require('bcrypt'); // Importação necessária
+const bcrypt = require('bcrypt'); // A importação pode ficar, não tem problema
 
 const authRoutes = require('./src/routes/authRoutes');
 const webhookRoutes = require('./src/routes/webhookRoutes');
@@ -21,25 +21,21 @@ const app = express();
 const createDefaultAdmin = async () => {
   try {
     // MUDANÇA 1: Novo email para forçar a criação
-    const adminEmail = 'levitamota+admin2@gmail.com';
+    const adminEmail = 'levitamota+admin3@gmail.com';
     const existingAdmin = await User.findOne({ email: adminEmail });
 
     if (!existingAdmin) {
       
-      // MUDANÇA 2: Criptografar a senha manualmente ANTES de salvar
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash('Andre9157$', salt);
-
+      // MUDANÇA 2: Voltamos a salvar como texto puro (o User.js vai criptografar)
       const adminUser = new User({
         name: 'Admin',
         email: adminEmail,
-        password: hashedPassword, // Salva a senha já criptografada
+        password: 'Andre9157$', // O hook pre-save no model irá fazer o hash
         role: 'admin',
         subscriptionStatus: 'active',
       });
       await adminUser.save();
-      logger.info('Usuário administrador padrão criado com sucesso.');
-    
+      logger.info('Usuário administrador padrão (admin3) criado com sucesso.');
     }
   } catch (error) {
     logger.error('Erro ao criar usuário administrador padrão.', {
@@ -49,6 +45,7 @@ const createDefaultAdmin = async () => {
   }
 };
 
+// ... (O resto do seu app.js continua igual daqui para baixo) ...
 // --- Conexão com o Banco de Dados ---
 mongoose.connect(process.env.DATABASE_URL)
   .then(() => {
@@ -64,9 +61,9 @@ mongoose.connect(process.env.DATABASE_URL)
   });
 
 // --- Middlewares Essenciais ---
-app.use(helmet()); // Define headers de segurança
-app.use(cors({ origin: process.env.CORS_ORIGIN })); // Permite requisições do seu frontend
-app.use(express.json()); // Parser para payloads JSON
+app.use(helmet());
+app.use(cors({ origin: process.env.CORS_ORIGIN }));
+app.use(express.json());
 
 // --- Rotas da API ---
 app.get('/api', (req, res) => res.send('API Maiflix está no ar!'));
@@ -75,38 +72,24 @@ app.use('/api/webhooks', webhookRoutes);
 app.use('/api', protectedRoutes);
 
 // --- Servir o Frontend Estático ---
-// Apenas em produção, sirva os arquivos buildados do frontend
 if (process.env.NODE_ENV === 'production') {
-  // Define o caminho para a pasta de build do frontend
   app.use(express.static(path.join(__dirname, '../frontend/dist')));
-
-  // Para qualquer outra rota que não seja da API, sirva o index.html do frontend
-  // Isso permite que o roteamento do lado do cliente (React Router) funcione
   app.get('*', (req, res) => {
     res.sendFile(path.resolve(__dirname, '../frontend/dist', 'index.html'));
   });
 }
 
 // --- Middleware de Tratamento de Erros ---
-// Este middleware captura todos os erros que ocorrem nas rotas
 app.use((err, req, res, next) => {
-  // Log detalhado do erro, incluindo informações da requisição
   logger.error("Erro não tratado na rota", {
     message: err.message,
     stack: err.stack,
-    request: {
-      url: req.originalUrl,
-      method: req.method,
-      ip: req.ip,
-      headers: req.headers,
-      body: req.body, // Cuidado: pode conter informações sensíveis. Em produção, considere omitir ou filtrar.
-    },
+    request: { url: req.originalUrl, method: req.method },
   });
   res.status(500).json({ message: 'Algo deu errado no servidor!' });
 });
 
 // --- Inicialização do Servidor ---
-// O cPanel/Passenger injeta a variável de ambiente PORT
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   logger.info(`Servidor rodando na porta ${PORT} em modo ${process.env.NODE_ENV || 'development'}`);
