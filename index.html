@@ -1,24 +1,73 @@
-
 <!DOCTYPE html>
-<html lang="pt-BR">
-  <head>
-    <meta charset="UTF-ax" />
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Gerador de Imagens Profissional</title>
+    <title>Maiflix</title>
     <script src="https://cdn.tailwindcss.com"></script>
-  <script type="importmap">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'brand-bg': 'var(--color-brand-bg, #1a1a2e)',
+              'brand-surface': 'var(--color-brand-surface, #16213e)',
+              'brand-primary': 'var(--color-brand-primary, #e94560)',
+              'brand-secondary': 'var(--color-brand-secondary, #0f3460)',
+              'brand-text': 'var(--color-brand-text, #dcdcdc)',
+              'brand-text-light': 'var(--color-brand-text-light, #a7a9be)',
+            },
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            }
+          }
+        }
+      }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      @keyframes like-pop {
+        0% { transform: scale(1.1); }
+        50% { transform: scale(1.4); }
+        100% { transform: scale(1.1); }
+      }
+      .animate-like-pop {
+        animation: like-pop 0.3s ease-out;
+      }
+      @keyframes comment-fade-in {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .animate-comment-fade-in {
+        animation: comment-fade-in 0.5s ease-out forwards;
+      }
+    </style>
+<script type="importmap">
 {
   "imports": {
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
-    "react/": "https://aistudiocdn.com/react@^19.1.1/",
-    "react": "https://aistudiocdn.com/react@^19.1.1",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.17.0"
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "vite": "https://aistudiocdn.com/vite@^7.1.12",
+    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.9.5",
+    "axios": "https://aistudiocdn.com/axios@^1.13.2",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.0"
   }
 }
 </script>
+<link rel="stylesheet" href="/index.css">
 </head>
-  <body>
-    <div id="root"></div>
-  </body>
+<body class="bg-brand-bg text-brand-text">
+<div id="root"></div>
+<script type="module" src="/index.tsx"></script>
+</body>
 </html>
