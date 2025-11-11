@@ -12,8 +12,7 @@ exports.login = async (req, res, next) => {
 
   try {
     // 1. Busca o usuário sem incluir a senha (removendo o .select('+senha'))
-    const user = await User.findOne({ 'e-mail': email.toLowerCase() });
-
+    const user = await User.findOne({ 'e-mail': email.toLowerCase() }).select('+senha');
     // 2. VERIFICAÇÃO DE DIAGNÓSTICO: APENAS verifica se o usuário existe.
     if (!user) { 
       // Se o usuário não existir, retorna a mensagem
