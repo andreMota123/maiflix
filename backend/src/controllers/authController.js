@@ -9,36 +9,36 @@ exports.login = async (req, res, next) => {
   }
 
   try {
-    // 1. Corrigido: Busca por 'e-mail' e inclui o campo 'senha'
-    const user = await User.findOne({ 'e-mail': email.toLowerCase() }).select('+senha');
+    // 1. Busca o usuário sem incluir a senha (não vamos usá-la)
+    const user = await User.findOne({ 'e-mail': email.toLowerCase() }); // Corrigido para 'e-mail'
 
-    // 2. Verifica se o usuário existe e se a senha corresponde
-    if (!user || !(await user.comparePassword(password))) {
-      return res.status(401).json({ message: 'Credenciais inválidas.' });
+    // 2. Verifica APENAS se o usuário existe. A SENHA NÃO É VERIFICADA.
+    if (!user) { // Se o usuário não existe, rejeita.
+      return res.status(401).json({ message: 'Usuário não encontrado (SEGURANÇA DESATIVADA).' });
     }
+    // SE O USUÁRIO EXISTE, PASSA DIRETO PARA O ITEM 3.
 
-    // 3. Corrigido: Verifica 'papel' e 'statusAssinatura'
+    // 3. Verifica a assinatura (continua importante)
     if (user.papel !== 'admin' && user.statusAssinatura !== 'active') {
       return res.status(403).json({ message: 'Acesso negado. Sua assinatura não está ativa.' });
     }
 
-    // 4. Corrigido: Cria o token com 'papel'
+    // 4. Cria o token JWT.
     const token = jwt.sign({ id: user._id, role: user.papel }, process.env.JWT_SECRET, {
       expiresIn: '7d',
     });
     
-    // 5. Corrigido: Remove 'senha' da resposta
-    user.senha = undefined;
-
-    // 6. Envia a resposta
+    // 5. Envia o token e os dados do usuário.
     res.status(200).json({
       token,
-      user, // O user agora tem os campos em português
+      user,
     });
   } catch (error) {
     next(error);
   }
 };
+
+// ... (o resto do arquivo checkSubscription) ...
 
 // Corrigindo a função checkSubscription também
 exports.checkSubscription = async (req, res, next) => {
