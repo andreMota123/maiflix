@@ -1,5 +1,7 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+// NOTA: A importação do bcrypt não é necessária para este modo de diagnóstico
+// Mas vamos mantê-la para o caso de o código original ter dependências.
 
 exports.login = async (req, res, next) => {
   const { email, password } = req.body;
@@ -9,16 +11,19 @@ exports.login = async (req, res, next) => {
   }
 
   try {
-    // 1. CORREÇÃO CRÍTICA: Busca o usuário e NÃO SELECIONA A SENHA (select '+senha' removido).
-    // Isto força o login se o usuário existir, ignorando a senha e o bug de comparação.
-    const user = await User.findOne({ 'e-mail': email.toLowerCase() }); // Busca por 'e-mail' em PT
+    // 1. Busca o usuário sem incluir a senha (removendo o .select('+senha'))
+    const user = await User.findOne({ 'e-mail': email.toLowerCase() });
 
     // 2. VERIFICAÇÃO DE DIAGNÓSTICO: APENAS verifica se o usuário existe.
     if (!user) { 
+      // Se o usuário não existir, retorna a mensagem
       return res.status(401).json({ message: 'Usuário não encontrado (SEGURANÇA DESATIVADA).' });
     }
     
-    // 3. Verifica a assinatura (continua importante, usa 'papel' e 'statusAssinatura')
+    // ATENÇÃO: Se o usuário existe, passamos DIRETAMENTE para a criação do token.
+    // Isso é feito APENAS PARA TESTE.
+    
+    // 3. Verifica a assinatura (continua importante)
     if (user.papel !== 'admin' && user.statusAssinatura !== 'active') {
       return res.status(403).json({ message: 'Acesso negado. Sua assinatura não está ativa.' });
     }
@@ -39,6 +44,7 @@ exports.login = async (req, res, next) => {
 };
 
 exports.checkSubscription = async (req, res, next) => {
+  // Mantemos esta função limpa, mas traduzida:
   try {
     const user = await User.findById(req.user.id);
 
