@@ -21,29 +21,32 @@ const app = express();
 const bcrypt = require('bcryptjs'); 
 // ...
 
+// ...
+// A importação do bcrypt AQUI pode ser removida ou deixada, não importa
+// ...
+
 const createDefaultAdmin = async () => {
   try {
-    // MUDANÇA: Novo email para forçar a recriação
-    const adminEmail = 'levitamota+final@gmail.com'; 
+    // MUDANÇA: Novo email para o "Plano Confiança"
+    const adminEmail = 'levitamota+confianca@gmail.com'; 
     // Corrigido: Procura por 'e-mail'
     const existingAdmin = await User.findOne({ 'e-mail': adminEmail });
 
     if (!existingAdmin) {
       
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash('Andre9157$', salt);
-
-      // Corrigido: Cria o admin com os campos em Português
+      // MUDANÇA CRÍTICA: Salvar a senha em TEXTO PURO.
+      // O 'User.js' (pre-save hook) vai intercetar e criptografar.
       const adminUser = new User({
-        name: 'Admin',
+        name: 'Admin Confiança',
         'e-mail': adminEmail,
-        senha: hashedPassword,
+        senha: 'Andre9157$', // <--- TEXTO PURO AQUI
         papel: 'admin',
         statusAssinatura: 'active',
-        avatarUrl: `https://i.pravatar.cc/150?u=${adminEmail}` // Adicionado para consistência
+        avatarUrl: `https://i.pravatar.cc/150?u=${adminEmail}`
       });
-      await adminUser.save();
-      logger.info('Usuário administrador (em PT) criado com sucesso.');
+      
+      await adminUser.save(); // O pre-save hook é ativado AQUI
+      logger.info('Usuário administrador (Confiança) criado com sucesso.');
     }
   } catch (error) {
     logger.error('Erro ao criar usuário administrador padrão.', {

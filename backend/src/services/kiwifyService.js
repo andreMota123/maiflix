@@ -1,51 +1,53 @@
 const User = require('../models/User');
 const logger = require('../utils/logger');
 
-// Função para ativar a assinatura de um usuário
-// ...
+// Função para ATIVAR ou CRIAR assinatura de um usuário
 const activateSubscription = async (customerEmail) => {
   if (!customerEmail) {
     logger.warn("Tentativa de ativar assinatura sem email do cliente.");
     return;
   }
+
   const email = customerEmail.toLowerCase();
+  
+  // A SENHA EM TEXTO PURO. O User.js (modelo) vai criptografar.
   const defaultPassword = 'mudar123'; 
 
   try {
-    // Corrigido: Procura por 'e-mail'
+    // Procura o usuário pelo campo em Português 'e-mail'
     let user = await User.findOne({ 'e-mail': email });
 
     if (user) {
-      // Corrigido: Atualiza 'statusAssinatura'
+      // 1. Usuário já existe, apenas reativa a assinatura
       user.statusAssinatura = 'active';
-      await user.save();
+      await user.save(); // O hook 'pre-save' não roda se a senha não for modificada
       logger.info('Assinatura RE-ativada com sucesso', { customerEmail: email });
+    
     } else {
+      // 2. Usuário NÃO existe, precisamos CRIAR um novo
       logger.info('Novo usuário. Criando conta de assinante...', { customerEmail: email });
       
-      const salt = await bcrypt.genSalt(10); // Adicionado para criptografar
-      const hashedPassword = await bcrypt.hash(defaultPassword, salt); // Criptografa a senha
-
-      // Corrigido: Cria com campos em Português
+      // MUDANÇA CRÍTICA: Cria o usuário com a senha em TEXTO PURO.
       const newUser = new User({
         name: email.split('@')[0], // Um nome padrão
         'e-mail': email,
-        senha: hashedPassword, // Salva a senha criptografada
+        senha: defaultPassword, // <-- SALVA O TEXTO PURO
         papel: 'user', 
         statusAssinatura: 'active'
       });
       
-      await newUser.save();
-      logger.info('Novo assinante (em PT) criado com sucesso.', { customerEmail: email });
+      // O 'pre-save' hook no User.js vai ser ativado AQUI e criptografar a senha
+      await newUser.save(); 
+      logger.info('Novo assinante (Confiança) criado com sucesso.', { customerEmail: email });
     }
   } catch (error) {
     logger.error('Erro ao ativar/criar assinatura no banco de dados.', {
       customerEmail: email,
-      errorMessage: error.message
+      errorMessage: error.message,
+      stack: error.stack
     });
   }
 };
-// ...
 
 // Função para desativar a assinatura
 const deactivateSubscription = async (customerEmail) => {
@@ -54,7 +56,7 @@ const deactivateSubscription = async (customerEmail) => {
     return;
   }
   try {
-    // MUDANÇA: Busca por 'e-mail' e atualiza 'statusAssinatura'.
+    // Corrigido: Busca por 'e-mail' e atualiza 'statusAssinatura'.
     const user = await User.findOneAndUpdate(
       { 'e-mail': customerEmail.toLowerCase() },
       { statusAssinatura: 'inactive' },
