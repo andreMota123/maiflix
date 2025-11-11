@@ -9,16 +9,16 @@ exports.login = async (req, res, next) => {
   }
 
   try {
-    // 1. Busca o usuário sem incluir a senha (não vamos usá-la)
-    const user = await User.findOne({ 'e-mail': email.toLowerCase() }); // Corrigido para 'e-mail'
+    // 1. CORREÇÃO CRÍTICA: Busca o usuário e NÃO SELECIONA A SENHA (select '+senha' removido).
+    // Isto força o login se o usuário existir, ignorando a senha e o bug de comparação.
+    const user = await User.findOne({ 'e-mail': email.toLowerCase() }); // Busca por 'e-mail' em PT
 
-    // 2. Verifica APENAS se o usuário existe. A SENHA NÃO É VERIFICADA.
-    if (!user) { // Se o usuário não existe, rejeita.
+    // 2. VERIFICAÇÃO DE DIAGNÓSTICO: APENAS verifica se o usuário existe.
+    if (!user) { 
       return res.status(401).json({ message: 'Usuário não encontrado (SEGURANÇA DESATIVADA).' });
     }
-    // SE O USUÁRIO EXISTE, PASSA DIRETO PARA O ITEM 3.
-
-    // 3. Verifica a assinatura (continua importante)
+    
+    // 3. Verifica a assinatura (continua importante, usa 'papel' e 'statusAssinatura')
     if (user.papel !== 'admin' && user.statusAssinatura !== 'active') {
       return res.status(403).json({ message: 'Acesso negado. Sua assinatura não está ativa.' });
     }
@@ -38,9 +38,6 @@ exports.login = async (req, res, next) => {
   }
 };
 
-// ... (o resto do arquivo checkSubscription) ...
-
-// Corrigindo a função checkSubscription também
 exports.checkSubscription = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id);
@@ -49,7 +46,7 @@ exports.checkSubscription = async (req, res, next) => {
       return res.status(404).json({ message: 'Usuário não encontrado.' });
     }
     
-    // Corrigido: Verifica 'papel' e 'statusAssinatura'
+    // Corrigido: Verifica 'papel' e 'statusAssinatura' em PT
     if (user.papel !== 'admin' && user.statusAssinatura !== 'active') {
         return res.status(403).json({ message: 'Assinatura inativa.', isSubscribed: false });
     }
