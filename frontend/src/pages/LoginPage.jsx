@@ -8,6 +8,7 @@ const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState('user');
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -29,12 +30,19 @@ const LoginPage = () => {
       setLoading(false);
     }
   };
+  
+  const toggleMode = () => {
+    setMode(prev => (prev === 'user' ? 'admin' : 'user'));
+    setError(''); // Clear error on mode toggle
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
       <div className="w-full max-w-md bg-gray-800 p-8 rounded-2xl shadow-lg">
         <h1 className="text-4xl font-bold text-center text-pink-500 mb-2">Maiflix</h1>
-        <p className="text-center text-gray-400 mb-8">Seu universo de criatividade.</p>
+        <p className="text-center text-gray-400 mb-8">
+          {mode === 'user' ? 'Seu universo de criatividade.' : 'Acesso Administrativo'}
+        </p>
         
         <form onSubmit={handleSubmit} className="space-y-6">
           <Input 
@@ -66,6 +74,14 @@ const LoginPage = () => {
             {loading ? 'Entrando...' : 'Entrar'}
           </button>
         </form>
+        <div className="text-center mt-6">
+            <button
+                onClick={toggleMode}
+                className="bg-transparent border-none text-sm text-gray-400 hover:text-pink-500 transition-colors cursor-pointer"
+            >
+                {mode === 'user' ? 'Acessar como Administrador' : 'Acessar como Assinante'}
+            </button>
+        </div>
       </div>
     </div>
   );

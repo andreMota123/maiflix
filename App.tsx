@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, FC, useRef, useEffect } from 'react';
 import { Page, User, Post, Product, Class, AdminPost, Comment, Notification, Banner } from './types';
 import { HomeIcon, UsersIcon, InfoIcon, FileIcon, UserCircleIcon, HeartIcon, CommentIcon, TrashIcon, BellIcon, WhatsappIcon, PhotoIcon, VideoIcon, LogoutIcon, EditIcon, UserPlusIcon, LockClosedIcon, LockOpenIcon, UserGroupIcon, BoxIcon, ChevronLeftIcon, ChevronRightIcon, Cog6ToothIcon, BookmarkIcon, EyeIcon, EyeSlashIcon } from './components/Icons';
@@ -15,8 +16,11 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // FIX: Initialized state directly as a class property to resolve errors where `this.state` was not recognized.
-  state: ErrorBoundaryState = { hasError: false };
+  // FIX: Replaced state initialization as a class property with a constructor to resolve errors where `this.props` was not recognized.
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     // Atualiza o estado para que a próxima renderização mostre a UI de fallback.
@@ -1492,13 +1496,18 @@ const App: FC = () => {
     const [carouselDuration, setCarouselDuration] = useState(5000); // 5 seconds
     const [colors, setColors] = useState<Record<string, string>>(() => {
         const savedColors = localStorage.getItem('maiflix-colors');
-        // FIX: Safely parse colors from localStorage. JSON.parse can throw an error or return an `unknown` type, so validation is necessary.
+        // FIX: Safely parse colors from localStorage. JSON.parse can return an `unknown` type, so validation is necessary.
         if (savedColors) {
             try {
-                const parsed = JSON.parse(savedColors);
-                if (typeof parsed === 'object' && parsed !== null) {
-                    // This is a basic check. For production, a schema validation library like Zod would be safer.
-                    return parsed as Record<string, string>;
+                const parsed: unknown = JSON.parse(savedColors);
+                // FIX: The value from JSON.parse is unknown. Validate that it's an object and all its property values are strings before casting and returning.
+                if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+                    const allValuesAreStrings = Object.values(parsed).every(
+                        (value) => typeof value === 'string'
+                    );
+                    if (allValuesAreStrings) {
+                        return parsed as Record<string, string>;
+                    }
                 }
             } catch (e) {
                 console.error("Could not parse colors from local storage:", e);

@@ -17,34 +17,42 @@ const protectedRoutes = require('./src/routes/protectedRoutes');
 
 const app = express();
 
+// ... (outras importações)
+const bcrypt = require('bcryptjs'); 
+// ...
+
 const createDefaultAdmin = async () => {
-    try {
-      // ATUALIZAÇÃO CRÍTICA: O e-mail foi ajustado para corresponder ao que você está usando nos testes.
-      const adminEmail = 'levitamota+adminfinal@gmail.com';
-      const existingAdmin = await User.findOne({ email: adminEmail });
-  
-      if (!existingAdmin) {
-        logger.info(`Nenhum administrador padrão encontrado com o email ${adminEmail}. Criando um novo...`);
-        const adminUser = new User({
-          name: 'Admin Final',
-          email: adminEmail,
-          password: 'Andre9157$', // A senha será criptografada pelo hook no User Model usando bcryptjs.
-          role: 'admin',
-          subscriptionStatus: 'active',
-        });
-        // O método .save() aciona o hook de hash de senha, garantindo a consistência.
-        await adminUser.save(); 
-        logger.info('Usuário administrador padrão criado com sucesso.');
-      } else {
-        logger.info('Usuário administrador padrão já existe.');
-      }
-    } catch (error) {
-      logger.error('Erro ao criar usuário administrador padrão.', {
-        message: error.message,
-        stack: error.stack,
+  try {
+    // MUDANÇA: Novo email para forçar a recriação
+    const adminEmail = 'levitamota+final@gmail.com'; 
+    // Corrigido: Procura por 'e-mail'
+    const existingAdmin = await User.findOne({ 'e-mail': adminEmail });
+
+    if (!existingAdmin) {
+      
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash('Andre9157$', salt);
+
+      // Corrigido: Cria o admin com os campos em Português
+      const adminUser = new User({
+        name: 'Admin',
+        'e-mail': adminEmail,
+        senha: hashedPassword,
+        papel: 'admin',
+        statusAssinatura: 'active',
+        avatarUrl: `https://i.pravatar.cc/150?u=${adminEmail}` // Adicionado para consistência
       });
+      await adminUser.save();
+      logger.info('Usuário administrador (em PT) criado com sucesso.');
     }
+  } catch (error) {
+    logger.error('Erro ao criar usuário administrador padrão.', {
+      message: error.message,
+      stack: error.stack,
+    });
+  }
 };
+// ... (o resto do app.js)
 
 // --- Conexão com o Banco de Dados ---
 mongoose.connect(process.env.DATABASE_URL)
