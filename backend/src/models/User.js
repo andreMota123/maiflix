@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt'); // Remove o 'js' para usar a versão mais comum
 
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
