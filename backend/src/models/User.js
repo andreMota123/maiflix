@@ -3,28 +3,24 @@ const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  // Corrigido para bater com o seu banco de dados
-  'e-mail': {
+  'e-mail': { // Campo correto no DB
     type: String,
     required: true,
     unique: true,
     lowercase: true,
     trim: true,
   },
-  // Corrigido para bater com o seu banco de dados
-  senha: {
+  senha: { // Campo correto no DB
     type: String,
     required: true,
-    select: false, // Não retorna a senha em queries por padrão
+    select: false,
   },
-  // Corrigido para bater com o seu banco de dados
-  papel: {
+  papel: { // Campo correto no DB
     type: String,
     enum: ['user', 'admin'],
     default: 'user',
   },
-  // Corrigido para bater com o seu banco de dados
-  statusAssinatura: {
+  statusAssinatura: { // Campo correto no DB
     type: String,
     enum: ['active', 'inactive', 'expired'],
     default: 'inactive',
@@ -32,13 +28,13 @@ const userSchema = new mongoose.Schema({
   avatarUrl: {
     type: String,
     default: function() {
-        // Usa 'e-mail' para gerar a URL
         return `https://i.pravatar.cc/150?u=${this['e-mail']}`;
     }
   },
 }, { timestamps: true });
 
 // Hook para criptografar a "senha" (em Português)
+// Este é o ÚNICO lugar onde o hash deve ser feito.
 userSchema.pre('save', async function(next) {
   if (!this.isModified('senha')) {
     return next();
@@ -50,10 +46,9 @@ userSchema.pre('save', async function(next) {
 
 // Método para comparar a "senha" (em Português)
 userSchema.methods.comparePassword = async function(candidatePassword) {
-  // 'this.senha' agora é o campo correto
+  // O bug de async/await está corrigido aqui
   return await bcrypt.compare(candidatePassword, this.senha);
 };
 
-// Mapeia o modelo para a coleção 'users' existente
 const User = mongoose.model('User', userSchema, 'users'); 
 module.exports = User;

@@ -1,5 +1,7 @@
 const User = require('../models/User');
 const logger = require('../utils/logger');
+// Nota: Não precisamos mais importar o bcrypt aqui, 
+// pois o User.js é que deve fazer a criptografia.
 
 // Função para ATIVAR ou CRIAR assinatura de um usuário
 const activateSubscription = async (customerEmail) => {
@@ -7,14 +9,13 @@ const activateSubscription = async (customerEmail) => {
     logger.warn("Tentativa de ativar assinatura sem email do cliente.");
     return;
   }
-
   const email = customerEmail.toLowerCase();
   
   // A SENHA EM TEXTO PURO. O User.js (modelo) vai criptografar.
   const defaultPassword = 'mudar123'; 
 
   try {
-    // Procura o usuário pelo campo em Português 'e-mail'
+    // Corrigido: Procura o usuário pelo campo em Português 'e-mail'
     let user = await User.findOne({ 'e-mail': email });
 
     if (user) {
@@ -27,18 +28,18 @@ const activateSubscription = async (customerEmail) => {
       // 2. Usuário NÃO existe, precisamos CRIAR um novo
       logger.info('Novo usuário. Criando conta de assinante...', { customerEmail: email });
       
-      // MUDANÇA CRÍTICA: Cria o usuário com a senha em TEXTO PURO.
+      // CRIAÇÃO COM SENHA EM TEXTO PURO (Confiança no User.js)
       const newUser = new User({
         name: email.split('@')[0], // Um nome padrão
         'e-mail': email,
-        senha: defaultPassword, // <-- SALVA O TEXTO PURO
+        senha: defaultPassword, // <--- TEXTO PURO AQUI
         papel: 'user', 
         statusAssinatura: 'active'
       });
       
       // O 'pre-save' hook no User.js vai ser ativado AQUI e criptografar a senha
       await newUser.save(); 
-      logger.info('Novo assinante (Confiança) criado com sucesso.', { customerEmail: email });
+      logger.info('Novo assinante (SOLUÇÃO) criado com sucesso.', { customerEmail: email });
     }
   } catch (error) {
     logger.error('Erro ao ativar/criar assinatura no banco de dados.', {
@@ -49,7 +50,7 @@ const activateSubscription = async (customerEmail) => {
   }
 };
 
-// Função para desativar a assinatura
+// Função para desativar a assinatura (também corrigida para usar campos em PT)
 const deactivateSubscription = async (customerEmail) => {
   if (!customerEmail) {
     logger.warn("Tentativa de desativar assinatura sem email do cliente.");
