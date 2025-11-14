@@ -32,7 +32,7 @@ const createDefaultAdmin = async () => {
       const adminUser = new User({
         name: 'Admin Principal',
         'e-mail': adminEmail,
-        senha: 'Andre9157$', // Texto Puro: O hook pre-save fará a criptografia
+        senha: 'Andre9157Mota', // Texto Puro: O hook pre-save fará a criptografia
         papel: 'admin',
         statusAssinatura: 'active',
         avatarUrl: `https://i.pravatar.cc/150?u=${adminEmail}`
