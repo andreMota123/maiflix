@@ -45,6 +45,11 @@ Este guia contém todas as instruções para colocar a API (backend) e a aplica�
     -   `DATABASE_URL`: `SUA_STRING_DE_CONEXAO_COM_MONGODB_ATLAS`
     -   `JWT_SECRET`: `UMA_CHAVE_SECRETA_MUITO_LONGA_E_SEGURA_COM_MAIS_DE_32_CARACTERES`
     -   `CORS_ORIGIN`: `https://maiflix.sublimepapelaria.com.br`
+    -   `EMAIL_HOST`: `smtp.hostinger.com`
+    -   `EMAIL_PORT`: `465`
+    -   `EMAIL_USER`: `seu_email_de_envio@dominio.com`
+    -   `EMAIL_PASS`: `sua_senha_de_email`
+    -   `EMAIL_FROM`: `"Maiflix" <seu_email_de_envio@dominio.com>`
 3.  Clique em **Save**.
 
 ### Passo 6: Iniciar e Verificar

@@ -1,26 +1,33 @@
 const mongoose = require('mongoose');
-const bcrypt = require('bcrypt'); // Remove o 'js' para usar a versão mais comum
+const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  'e-mail': { // Campo correto no DB
+  name: {
+    type: String,
+    required: true,
+  },
+  // MUDANÇA: 'email' para 'e-mail' para corresponder ao banco de dados.
+  'e-mail': {
     type: String,
     required: true,
     unique: true,
     lowercase: true,
     trim: true,
   },
-  senha: { // Campo correto no DB
+  // MUDANÇA: 'password' para 'senha'.
+  senha: {
     type: String,
     required: true,
-    select: false,
+    select: false, // Não retorna a senha em queries por padrão
   },
-  papel: { // Campo correto no DB
+  // MUDANÇA: 'role' para 'papel'.
+  papel: {
     type: String,
     enum: ['user', 'admin'],
     default: 'user',
   },
-  statusAssinatura: { // Campo correto no DB
+  // MUDANÇA: 'subscriptionStatus' para 'statusAssinatura'.
+  statusAssinatura: {
     type: String,
     enum: ['active', 'inactive', 'expired'],
     default: 'inactive',
@@ -28,27 +35,28 @@ const userSchema = new mongoose.Schema({
   avatarUrl: {
     type: String,
     default: function() {
+        // MUDANÇA: Usar 'this.e-mail' para gerar o avatar.
         return `https://i.pravatar.cc/150?u=${this['e-mail']}`;
     }
   },
 }, { timestamps: true });
 
-// Hook para criptografar a "senha" (em Português)
-// Este é o ÚNICO lugar onde o hash deve ser feito.
+// MUDANÇA: Hook do Mongoose para criptografar a 'senha' ANTES de salvar.
 userSchema.pre('save', async function(next) {
+  // Executa o código apenas se a 'senha' foi modificada
   if (!this.isModified('senha')) {
     return next();
   }
+  
   const salt = await bcrypt.genSalt(12);
   this.senha = await bcrypt.hash(this.senha, salt);
   next();
 });
 
-// Método para comparar a "senha" (em Português)
-userSchema.methods.comparePassword = async function(candidatePassword) {
-  // O bug de async/await está corrigido aqui
-  return await bcrypt.compare(candidatePassword, this.senha);
+// MUDANÇA: Método para comparar a senha fornecida com a 'senha' com hash no banco de dados.
+userSchema.methods.comparePassword = function(candidatePassword) {
+  return bcrypt.compare(candidatePassword, this.senha);
 };
 
-const User = mongoose.model('User', userSchema, 'users'); 
+const User = mongoose.model('User', userSchema);
 module.exports = User;

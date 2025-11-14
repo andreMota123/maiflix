@@ -9,7 +9,7 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const path = require('path'); // Importar o módulo 'path'
 const logger = require('./src/utils/logger');
-const User = require('./src/models/User'); // Importado o modelo User
+const User = require('./src/models/User');
 
 const authRoutes = require('./src/routes/authRoutes');
 const webhookRoutes = require('./src/routes/webhookRoutes');
@@ -17,41 +17,34 @@ const protectedRoutes = require('./src/routes/protectedRoutes');
 
 const app = express();
 
-// A importação do bcryptjs é desnecessária aqui, mas mantê-la não causa erro.
-// const bcrypt = require('bcryptjs'); 
-
 const createDefaultAdmin = async () => {
-  try {
-    // MUDANÇA: NOVO EMAIL FINAL PARA GARANTIR A CRIAÇÃO CORRETA
-    const adminEmail = 'levitamota+finalsolucao@gmail.com'; 
-    
-    // Corrigido: Procura por 'e-mail' (em Português)
-    const existingAdmin = await User.findOne({ 'e-mail': adminEmail });
-
-    if (!existingAdmin) {
-      
-      // MUDANÇA CRÍTICA: Salvar a senha em TEXTO PURO.
-      // O 'User.js' (pre-save hook) vai intercetar e criptografar.
-      const adminUser = new User({
-        name: 'Admin Solucao',
-        'e-mail': adminEmail,
-        senha: 'Andre9157$', // <--- TEXTO PURO AQUI (Isto é resolvido pelo User.js)
-        papel: 'admin',
-        statusAssinatura: 'active',
-        avatarUrl: `https://i.pravatar.cc/150?u=${adminEmail}`
+    try {
+      const adminEmail = 'levitamota+adminfinal@gmail.com';
+      // MUDANÇA: Busca pelo campo 'e-mail'.
+      const existingAdmin = await User.findOne({ 'e-mail': adminEmail });
+  
+      if (!existingAdmin) {
+        logger.info(`Nenhum administrador padrão encontrado com o email ${adminEmail}. Criando um novo...`);
+        // MUDANÇA: Cria o usuário com os campos em português.
+        const adminUser = new User({
+          name: 'Admin Final',
+          'e-mail': adminEmail,
+          senha: 'Andre9157$', // O hook pre-save irá criptografar este campo.
+          papel: 'admin',
+          statusAssinatura: 'active',
+        });
+        await adminUser.save(); 
+        logger.info('Usuário administrador padrão criado com sucesso.');
+      } else {
+        logger.info('Usuário administrador padrão já existe.');
+      }
+    } catch (error) {
+      logger.error('Erro ao criar usuário administrador padrão.', {
+        message: error.message,
+        stack: error.stack,
       });
-      
-      await adminUser.save(); // Este save aciona a criptografia no User.js
-      logger.info('Usuário administrador (SOLUÇÃO) criado com sucesso.');
     }
-  } catch (error) {
-    logger.error('Erro ao criar usuário administrador padrão.', {
-      message: error.message,
-      stack: error.stack,
-    });
-  }
 };
-
 
 // --- Conexão com o Banco de Dados ---
 mongoose.connect(process.env.DATABASE_URL)

@@ -1,63 +1,60 @@
 const User = require('../models/User');
 const logger = require('../utils/logger');
-// Nota: Não precisamos mais importar o bcrypt aqui, 
-// pois o User.js é que deve fazer a criptografia.
+const { sendWelcomeEmail } = require('../utils/emailService');
 
-// Função para ATIVAR ou CRIAR assinatura de um usuário
-const activateSubscription = async (customerEmail) => {
-  if (!customerEmail) {
-    logger.warn("Tentativa de ativar assinatura sem email do cliente.");
+// Função para ativar a assinatura de um usuário
+const activateSubscription = async (customer) => {
+  if (!customer || !customer.email) {
+    logger.warn("Tentativa de ativar assinatura sem dados do cliente.");
     return;
   }
-  const email = customerEmail.toLowerCase();
-  
-  // A SENHA EM TEXTO PURO. O User.js (modelo) vai criptografar.
-  const defaultPassword = 'mudar123'; 
-
   try {
-    // Corrigido: Procura o usuário pelo campo em Português 'e-mail'
+    const email = customer.email.toLowerCase();
     let user = await User.findOne({ 'e-mail': email });
 
     if (user) {
-      // 1. Usuário já existe, apenas reativa a assinatura
+      // Se o usuário já existe, apenas atualiza o status da assinatura
       user.statusAssinatura = 'active';
-      await user.save(); // O hook 'pre-save' não roda se a senha não for modificada
-      logger.info('Assinatura RE-ativada com sucesso', { customerEmail: email });
-    
+      await user.save();
+      logger.info('Assinatura ativada com sucesso para usuário existente', { customerEmail: email, userId: user._id });
     } else {
-      // 2. Usuário NÃO existe, precisamos CRIAR um novo
-      logger.info('Novo usuário. Criando conta de assinante...', { customerEmail: email });
-      
-      // CRIAÇÃO COM SENHA EM TEXTO PURO (Confiança no User.js)
+      // Se o usuário não existe, cria um novo com uma senha padrão.
+      const fullName = customer.full_name || 'Novo';
+      const firstName = fullName.split(' ')[0];
+      const plainTextPassword = `${firstName.toLowerCase()}1234`;
+
       const newUser = new User({
-        name: email.split('@')[0], // Um nome padrão
         'e-mail': email,
-        senha: defaultPassword, // <--- TEXTO PURO AQUI
-        papel: 'user', 
-        statusAssinatura: 'active'
+        name: fullName,
+        senha: plainTextPassword, // Senha será criptografada pelo hook pre-save.
+        statusAssinatura: 'active',
+        papel: 'user',
       });
-      
-      // O 'pre-save' hook no User.js vai ser ativado AQUI e criptografar a senha
       await newUser.save(); 
-      logger.info('Novo assinante (SOLUÇÃO) criado com sucesso.', { customerEmail: email });
+      logger.info(`Webhook 'order.paid' recebido, novo usuário criado e assinatura ativada.`, { customerEmail: email, userId: newUser._id });
+
+      // Envia o e-mail de boas-vindas com a senha em texto plano
+      await sendWelcomeEmail(email, firstName, plainTextPassword);
     }
+
   } catch (error) {
-    logger.error('Erro ao ativar/criar assinatura no banco de dados.', {
-      customerEmail: email,
+    logger.error('Erro ao ativar/criar assinatura via webhook.', { 
+      customerEmail: customer.email,
       errorMessage: error.message,
       stack: error.stack
     });
   }
 };
 
-// Função para desativar a assinatura (também corrigida para usar campos em PT)
-const deactivateSubscription = async (customerEmail) => {
-  if (!customerEmail) {
+// Função para desativar a assinatura
+const deactivateSubscription = async (customer) => {
+  if (!customer || !customer.email) {
     logger.warn("Tentativa de desativar assinatura sem email do cliente.");
     return;
   }
+  const customerEmail = customer.email;
   try {
-    // Corrigido: Busca por 'e-mail' e atualiza 'statusAssinatura'.
+    // MUDANÇA: Busca por 'e-mail' e atualiza 'statusAssinatura'.
     const user = await User.findOneAndUpdate(
       { 'e-mail': customerEmail.toLowerCase() },
       { statusAssinatura: 'inactive' },

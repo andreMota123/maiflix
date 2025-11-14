@@ -1,7 +1,5 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
-// NOTA: A importação do bcrypt não é necessária para este modo de diagnóstico
-// Mas vamos mantê-la para o caso de o código original ter dependências.
 
 exports.login = async (req, res, next) => {
   const { email, password } = req.body;
@@ -11,17 +9,15 @@ exports.login = async (req, res, next) => {
   }
 
   try {
-    // 1. Busca o usuário sem incluir a senha (removendo o .select('+senha'))
+    // 1. A SOLUÇÃO: Busca o usuário pelo campo em PT ('e-mail') E carrega a senha ('+senha')
     const user = await User.findOne({ 'e-mail': email.toLowerCase() }).select('+senha');
-    // 2. VERIFICAÇÃO DE DIAGNÓSTICO: APENAS verifica se o usuário existe.
-    if (!user) { 
-      // Se o usuário não existir, retorna a mensagem
-      return res.status(401).json({ message: 'Usuário não encontrado (SEGURANÇA DESATIVADA).' });
+
+    // 2. VERIFICAÇÃO FINAL E SEGURA (Compara o hash)
+    // O comparePassword no User.js é o que realmente faz o trabalho
+    if (!user || !(await user.comparePassword(password))) {
+      return res.status(401).json({ message: 'Credenciais inválidas.' });
     }
-    
-    // ATENÇÃO: Se o usuário existe, passamos DIRETAMENTE para a criação do token.
-    // Isso é feito APENAS PARA TESTE.
-    
+
     // 3. Verifica a assinatura (continua importante)
     if (user.papel !== 'admin' && user.statusAssinatura !== 'active') {
       return res.status(403).json({ message: 'Acesso negado. Sua assinatura não está ativa.' });
@@ -32,7 +28,9 @@ exports.login = async (req, res, next) => {
       expiresIn: '7d',
     });
     
-    // 5. Envia o token e os dados do usuário.
+    // 5. Remove a senha e envia a resposta
+    user.senha = undefined;
+
     res.status(200).json({
       token,
       user,
@@ -43,7 +41,6 @@ exports.login = async (req, res, next) => {
 };
 
 exports.checkSubscription = async (req, res, next) => {
-  // Mantemos esta função limpa, mas traduzida:
   try {
     const user = await User.findById(req.user.id);
 
@@ -51,7 +48,7 @@ exports.checkSubscription = async (req, res, next) => {
       return res.status(404).json({ message: 'Usuário não encontrado.' });
     }
     
-    // Corrigido: Verifica 'papel' e 'statusAssinatura' em PT
+    // Verifica 'papel' e 'statusAssinatura' em PT
     if (user.papel !== 'admin' && user.statusAssinatura !== 'active') {
         return res.status(403).json({ message: 'Assinatura inativa.', isSubscribed: false });
     }

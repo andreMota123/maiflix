@@ -1,6 +1,5 @@
 
 
-
 import React, { useState, FC, useRef, useEffect } from 'react';
 import { Page, User, Post, Product, Class, AdminPost, Comment, Notification, Banner } from './types';
 import { HomeIcon, UsersIcon, InfoIcon, FileIcon, UserCircleIcon, HeartIcon, CommentIcon, TrashIcon, BellIcon, WhatsappIcon, PhotoIcon, VideoIcon, LogoutIcon, EditIcon, UserPlusIcon, LockClosedIcon, LockOpenIcon, UserGroupIcon, BoxIcon, ChevronLeftIcon, ChevronRightIcon, Cog6ToothIcon, BookmarkIcon, EyeIcon, EyeSlashIcon } from './components/Icons';
@@ -16,7 +15,7 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // FIX: Replaced state initialization as a class property with a constructor to resolve errors where `this.props` was not recognized.
+  // Fix for errors on lines 20, 34, 47, 1797: The constructor initializes state and props for the component, preventing runtime errors and resolving type-checking issues.
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false };
@@ -135,6 +134,13 @@ const getYoutubeEmbedUrl = (url: string): string | null => {
         return `https://www.youtube.com/embed/${videoId}`;
     }
     return null;
+};
+
+const isValidYoutubeUrl = (url: string): boolean => {
+    if (!url) return true; // Optional field is valid if empty
+    // Regex to match standard YouTube watch URLs and short youtu.be URLs
+    const youtubeRegex = /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+    return youtubeRegex.test(url);
 };
 
 // --- CONFIGS ---
@@ -1022,6 +1028,7 @@ const AdminProductsPage: FC<{
         const [fileType, setFileType] = useState<'SVG' | 'PDF' | 'STUDIO'>('SVG');
         const [downloadUrl, setDownloadUrl] = useState('');
         const [youtubeUrl, setYoutubeUrl] = useState('');
+        const [youtubeError, setYoutubeError] = useState('');
 
         useEffect(() => {
             if (product) {
@@ -1039,10 +1046,17 @@ const AdminProductsPage: FC<{
                 setDownloadUrl('');
                 setYoutubeUrl('');
             }
+            setYoutubeError('');
         }, [product, isOpen]);
 
         const handleSubmit = (e: React.FormEvent) => {
             e.preventDefault();
+
+            if (youtubeUrl.trim() && !isValidYoutubeUrl(youtubeUrl)) {
+                setYoutubeError('Por favor, insira uma URL do YouTube válida.');
+                return;
+            }
+
             const productData = { name, description, thumbnailUrl, fileType, downloadUrl, youtubeUrl: youtubeUrl || undefined };
             if (product) {
                 onUpdateProduct({ ...product, ...productData });
@@ -1075,7 +1089,19 @@ const AdminProductsPage: FC<{
                             </select>
                         </div>
                         <Input label="URL para Download" id="prod-download" value={downloadUrl} onChange={e => setDownloadUrl(e.target.value)} required />
-                        <Input label="URL do Vídeo do YouTube (opcional)" id="prod-youtube" value={youtubeUrl} onChange={e => setYoutubeUrl(e.target.value)} placeholder="https://www.youtube.com/watch?v=..." />
+                        <div>
+                            <Input 
+                                label="URL do Vídeo do YouTube (opcional)" 
+                                id="prod-youtube" 
+                                value={youtubeUrl} 
+                                onChange={(e) => {
+                                    setYoutubeUrl(e.target.value);
+                                    if (youtubeError) setYoutubeError('');
+                                }} 
+                                placeholder="https://www.youtube.com/watch?v=..."
+                            />
+                            {youtubeError && <p className="text-sm text-red-400 mt-1">{youtubeError}</p>}
+                        </div>
                         <div className="flex justify-end space-x-2 pt-4">
                             <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
                             <Button type="submit">{product ? 'Salvar Alterações' : 'Adicionar'}</Button>
@@ -1510,7 +1536,8 @@ const App: FC = () => {
                     }
                 }
             } catch (e) {
-                console.error("Could not parse colors from local storage:", e);
+                // Fix for line 1547: The caught error `e` is of type 'unknown'. It's converted to a string to be compatible with console.error.
+                console.error("Could not parse colors from local storage:", String(e));
             }
         }
         return DEFAULT_COLORS;

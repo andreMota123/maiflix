@@ -16,11 +16,11 @@ exports.handleKiwifyWebhook = (req, res) => {
   // Use um switch para lidar com diferentes eventos
   switch (payload.event) {
     case 'order.paid': // Assinatura paga / renovada
-      kiwifyService.activateSubscription(payload.customer.email);
+      kiwifyService.activateSubscription(payload.customer);
       break;
     case 'order.refunded': // Assinatura reembolsada
     case 'subscription.cancelled': // Assinatura cancelada
-      kiwifyService.deactivateSubscription(payload.customer.email);
+      kiwifyService.deactivateSubscription(payload.customer);
       break;
     default:
       logger.warn('Evento Kiwify não tratado', { event: payload.event });
