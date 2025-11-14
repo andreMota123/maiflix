@@ -18,32 +18,37 @@ const protectedRoutes = require('./src/routes/protectedRoutes');
 const app = express();
 
 const createDefaultAdmin = async () => {
-    try {
-      const adminEmail = 'levitamota+adminfinal@gmail.com';
-      // MUDANÇA: Busca pelo campo 'e-mail'.
-      const existingAdmin = await User.findOne({ 'e-mail': adminEmail });
-  
-      if (!existingAdmin) {
-        logger.info(`Nenhum administrador padrão encontrado com o email ${adminEmail}. Criando um novo...`);
-        // MUDANÇA: Cria o usuário com os campos em português.
-        const adminUser = new User({
-          name: 'Admin Final',
-          'e-mail': adminEmail,
-          senha: 'Andre9157$', // O hook pre-save irá criptografar este campo.
-          papel: 'admin',
-          statusAssinatura: 'active',
-        });
-        await adminUser.save(); 
-        logger.info('Usuário administrador padrão criado com sucesso.');
-      } else {
-        logger.info('Usuário administrador padrão já existe.');
-      }
-    } catch (error) {
-      logger.error('Erro ao criar usuário administrador padrão.', {
-        message: error.message,
-        stack: error.stack,
+  try {
+    // CORREÇÃO FINAL: Usar o email definitivo e único para o Admin
+    const adminEmail = 'levitamota@gmail.com'; 
+    
+    // Corrigido: Busca pelo campo 'e-mail' (em PT)
+    const existingAdmin = await User.findOne({ 'e-mail': adminEmail });
+
+    if (!existingAdmin) {
+      logger.info(`Nenhum administrador padrão encontrado com o email ${adminEmail}. Criando um novo...`);
+      
+      // Corrigido: Cria o usuário com campos em Português e senha em Texto Puro
+      const adminUser = new User({
+        name: 'Admin Principal',
+        'e-mail': adminEmail,
+        senha: 'Andre9157$', // Texto Puro: O hook pre-save fará a criptografia
+        papel: 'admin',
+        statusAssinatura: 'active',
+        avatarUrl: `https://i.pravatar.cc/150?u=${adminEmail}`
       });
+      
+      await adminUser.save(); 
+      logger.info('Usuário administrador padrão criado com sucesso.');
+    } else {
+      logger.info('Usuário administrador padrão já existe.');
     }
+  } catch (error) {
+    logger.error('Erro ao criar usuário administrador padrão.', {
+      message: error.message,
+      stack: error.stack,
+    });
+  }
 };
 
 // --- Conexão com o Banco de Dados ---
