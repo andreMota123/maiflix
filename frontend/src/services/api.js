@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: "https://maiflix-9kgs.onrender.com/api"
 });
 
 // Interceptor para adicionar o token de autenticação em todas as requisições
