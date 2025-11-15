@@ -15,7 +15,7 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Fix for errors on lines 20, 34, 47, 1797: The constructor initializes state and props for the component, preventing runtime errors and resolving type-checking issues.
+  // Fix for errors on lines 21, 35, 48, 1798: The constructor initializes state and props for the component, preventing runtime errors and resolving type-checking issues.
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false };
@@ -1536,7 +1536,7 @@ const App: FC = () => {
                     }
                 }
             } catch (e) {
-                // Fix for line 1547: The caught error `e` is of type 'unknown'. It's converted to a string to be compatible with console.error.
+                // Fix for error on line 1548: The caught error `e` is of type 'unknown'. It's converted to a string to be compatible with console.error.
                 console.error("Could not parse colors from local storage:", String(e));
             }
         }

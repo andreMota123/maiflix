@@ -1,6 +1,8 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const logger = require('../utils/logger');
 
+// Middleware to protect routes by verifying JWT
 exports.protect = async (req, res, next) => {
   let token;
 
@@ -20,9 +22,19 @@ exports.protect = async (req, res, next) => {
       return res.status(401).json({ message: 'O usuário pertencente a este token não existe mais.' });
     }
 
-    req.user = currentUser; // Anexa o usuário ao objeto da requisição
+    req.user = currentUser; // Attach user to the request object
     next();
   } catch (error) {
+    logger.warn('Falha na verificação do token', { token, error: error.message });
     return res.status(401).json({ message: 'Token inválido ou expirado.' });
+  }
+};
+
+// Middleware to restrict access to admin users
+exports.admin = (req, res, next) => {
+  if (req.user && req.user.papel === 'admin') {
+    next();
+  } else {
+    res.status(403).json({ message: 'Acesso negado. Rota exclusiva para administradores.' });
   }
 };

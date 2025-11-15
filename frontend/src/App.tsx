@@ -6,7 +6,11 @@ import BlockedPage from './pages/BlockedPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './contexts/AuthContext';
 import AdminLayout from './layouts/AdminLayout';
+import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import AdminUsersPage from './pages/admin/AdminUsersPage';
+import AdminProductsPage from './pages/admin/AdminProductsPage';
+import AdminBannersPage from './pages/admin/AdminBannersPage';
+import AdminSettingsPage from './pages/admin/AdminSettingsPage';
 
 
 function App() {
@@ -40,9 +44,11 @@ const UserRoutes = () => (
 const AdminRoutes = () => (
   <AdminLayout>
     <Routes>
-      <Route path="/" element={<h1 className="p-8 text-2xl">Admin Dashboard (Em construção)</h1>} />
+      <Route path="/" element={<AdminDashboardPage />} />
       <Route path="/users" element={<AdminUsersPage />} />
-      {/* Future admin pages can be added here */}
+      <Route path="/products" element={<AdminProductsPage />} />
+      <Route path="/banners" element={<AdminBannersPage />} />
+      <Route path="/settings" element={<AdminSettingsPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   </AdminLayout>
