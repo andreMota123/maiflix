@@ -32,7 +32,9 @@ const userSchema = new mongoose.Schema({
   avatarUrl: {
     type: String,
     default: function() {
-        return `https://i.pravatar.cc/150?u=${this.email}`;
+        // Generate a more professional avatar with user's initials
+        const encodedName = encodeURIComponent(this.name);
+        return `https://ui-avatars.com/api/?name=${encodedName}&background=random&color=fff`;
     }
   },
 }, { timestamps: true });
