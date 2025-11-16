@@ -6,9 +6,10 @@ if (process.env.NODE_ENV !== 'production') {
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
-const path = require('path'); // Importar o módulo path
+const path = require('path');
 const logger = require('./src/utils/logger');
 const connectDB = require('./src/config/db');
+const setupAdmin = require('./src/utils/setupAdmin');
 
 // --- Import Routes ---
 const authRoutes = require('./src/routes/authRoutes');
@@ -18,10 +19,7 @@ const adminPostRoutes = require('./src/routes/adminPostRoutes');
 const productRoutes = require('./src/routes/productRoutes');
 const bannerRoutes = require('./src/routes/bannerRoutes');
 const settingRoutes = require('./src/routes/settingRoutes');
-const postRoutes = require('./src/routes/postRoutes'); // Nova rota da comunidade
-
-// --- Connect to Database ---
-connectDB();
+const postRoutes = require('./src/routes/postRoutes');
 
 const app = express();
 
@@ -39,18 +37,12 @@ app.use('/api/admin-posts', adminPostRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/banners', bannerRoutes);
 app.use('/api/settings', settingRoutes);
-app.use('/api/posts', postRoutes); // Rota para posts da comunidade
+app.use('/api/posts', postRoutes);
 
 // --- Serve Frontend in Production ---
 if (process.env.NODE_ENV === 'production') {
-  // Define o caminho para a pasta de build do frontend
   const frontendDistPath = path.join(__dirname, '..', 'frontend', 'dist');
-  
-  // Serve os arquivos estáticos do React
   app.use(express.static(frontendDistPath));
-
-  // O "catchall" handler: para qualquer requisição que não corresponda a uma rota da API,
-  // envia de volta o arquivo index.html do React.
   app.get('*', (req, res) => {
     res.sendFile(path.resolve(frontendDistPath, 'index.html'));
   });
@@ -72,6 +64,21 @@ app.use((err, req, res, next) => {
 
 // --- Server Initialization ---
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  logger.info(`Servidor rodando na porta ${PORT} em modo ${process.env.NODE_ENV || 'development'}`);
-});
+
+const startServer = async () => {
+  try {
+    // 1. Connect to the database
+    await connectDB();
+    // 2. Setup the admin user automatically
+    await setupAdmin();
+    // 3. Start listening for requests
+    app.listen(PORT, () => {
+      logger.info(`Servidor rodando na porta ${PORT} em modo ${process.env.NODE_ENV || 'development'}`);
+    });
+  } catch (error) {
+    logger.error('Falha ao iniciar o servidor.', { message: error.message, stack: error.stack });
+    process.exit(1);
+  }
+};
+
+startServer();

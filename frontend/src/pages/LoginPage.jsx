@@ -23,13 +23,10 @@ const LoginPage = () => {
     try {
       await login(email, password);
       // After successful login, the AuthContext will have the user's role.
-      // The main App component will then automatically navigate to the correct dashboard.
-      // A small delay to allow context to update before navigation attempt.
-      setTimeout(() => {
-        const userRole = JSON.parse(localStorage.getItem('maiflix_user_role'));
-        const destination = from === "/" ? (userRole === 'admin' ? '/admin' : '/') : from;
-        navigate(destination, { replace: true });
-      }, 100);
+      // We read the role from localStorage to decide the redirect destination.
+      const userRole = localStorage.getItem('maiflix_user_role');
+      const destination = from === "/" ? (userRole === 'admin' ? '/admin' : '/') : from;
+      navigate(destination, { replace: true });
 
     } catch (err) {
       setError(err.response?.data?.message || 'Erro ao fazer login. Verifique suas credenciais.');

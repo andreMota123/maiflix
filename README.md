@@ -35,10 +35,10 @@ Maiflix é uma plataforma de assinatura completa para criativos, oferecendo aces
 
 1.  Navegue até a pasta `backend`: `cd backend`
 2.  Crie um arquivo `.env` a partir do exemplo: `cp .env.example .env`
-3.  Edite o arquivo `.env` e preencha a variável `DATABASE_URL` com sua string de conexão do MongoDB Atlas.
+3.  Edite o arquivo `.env` e preencha a variável `DATABASE_URL` com sua string de conexão do MongoDB Atlas. Adicione também `ADMIN_EMAIL`, `ADMIN_PASSWORD`, e `ADMIN_NAME` para o admin local.
 4.  Instale as dependências: `npm install`
 5.  Inicie o servidor de desenvolvimento: `npm run dev`
-    -   A API estará rodando em `http://localhost:5000`.
+    -   A API estará rodando em `http://localhost:5000`. O usuário admin será criado automaticamente na primeira inicialização.
 
 ### Frontend
 
@@ -67,8 +67,12 @@ Nesta abordagem, usaremos um único **Web Service** no Render que irá construir
     -   `DATABASE_URL`: Sua string de conexão do MongoDB Atlas.
     -   `JWT_SECRET`: Uma chave secreta longa e segura (ex: use um gerador de senhas).
     -   `CORS_ORIGIN`: O URL da sua aplicação no Render (ex: `https://maiflix.onrender.com`).
-    -   `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME`: Credenciais para o usuário admin inicial.
+    -   `ADMIN_EMAIL`: `levitamota@gmail.com`
+    -   `ADMIN_PASSWORD`: `Andre9157$`
+    -   `ADMIN_NAME`: `Administrador`
     -   (Opcional) Configure as variáveis `EMAIL_*` se desejar habilitar o envio de emails.
 5.  Clique em **Create Web Service**.
+
+**Importante:** Na primeira vez que o serviço iniciar em produção, ele criará automaticamente o usuário administrador no seu banco de dados usando as variáveis `ADMIN_*` que você definiu. Você não precisa executar nenhum comando adicional.
 
 Após o primeiro deploy, que pode demorar alguns minutos, sua aplicação Maiflix estará 100% online e funcional no URL fornecido pelo Render.
