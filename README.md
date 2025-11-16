@@ -35,7 +35,7 @@ Maiflix é uma plataforma de assinatura completa para criativos, oferecendo aces
 
 1.  Navegue até a pasta `backend`: `cd backend`
 2.  Crie um arquivo `.env` a partir do exemplo: `cp .env.example .env`
-3.  Edite o arquivo `.env` e preencha a variável `DATABASE_URL` com sua string de conexão do MongoDB Atlas. Adicione também `ADMIN_EMAIL`, `ADMIN_PASSWORD`, e `ADMIN_NAME` para o admin local.
+3.  Edite o arquivo `.env` e preencha a variável `DATABASE_URL` com sua string de conexão do MongoDB Atlas. Adicione também `ADMIN_EMAIL`, `ADMIN_PASSWORD`, e `ADMIN_NAME` для o admin local.
 4.  Instale as dependências: `npm install`
 5.  Inicie o servidor de desenvolvimento: `npm run dev`
     -   A API estará rodando em `http://localhost:5000`. O usuário admin será criado automaticamente na primeira inicialização.
@@ -60,7 +60,7 @@ Nesta abordagem, usaremos um único **Web Service** no Render que irá construir
     -   **Root Directory**: (deixe em branco)
     -   **Environment**: `Node`
     -   **Region**: Escolha a mais próxima de você.
-    -   **Build Command**: `npm install --prefix frontend && npm run build --prefix frontend && npm install --prefix backend`
+    -   **Build Command**: `npm install --prefix frontend --production=false && npm run build --prefix frontend && npm install --prefix backend`
     -   **Start Command**: `node backend/app.js`
 4.  Clique em **Advanced** e adicione as **Environment Variables**:
     -   `NODE_ENV`: `production`
