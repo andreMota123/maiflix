@@ -31,24 +31,18 @@ exports.createUser = async (req, res, next) => {
   }
 
   try {
-    // Ensure email is trimmed and lowercased for consistency
-    const processedEmail = email.trim().toLowerCase();
-
-    const userExists = await User.findOne({ email: processedEmail });
-    if (userExists) {
-      return res.status(400).json({ message: 'Um usuário com este email já existe.' });
-    }
-
+    // Remove the pre-emptive findOne check and rely on the database's unique index.
+    // This is more robust and avoids potential race conditions or query mismatches.
     const user = await User.create({
       name: name.trim(),
-      email: processedEmail,
+      email: email.trim().toLowerCase(),
       password: password,
       subscriptionStatus: 'active', // Assume active when created by admin
     });
 
     res.status(201).json(user);
   } catch (error) {
-    // Specific handling for duplicate key errors (code 11000)
+    // Specific handling for duplicate key errors (code 11000) from MongoDB's unique index
     if (error.code === 11000) {
       logger.warn('Falha ao criar usuário: Email duplicado.', { email: email, error: error.message });
       return res.status(409).json({ message: 'Este email já está cadastrado no sistema.' });
