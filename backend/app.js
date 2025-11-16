@@ -6,6 +6,7 @@ if (process.env.NODE_ENV !== 'production') {
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
+const path = require('path'); // Importar o módulo path
 const logger = require('./src/utils/logger');
 const connectDB = require('./src/config/db');
 
@@ -39,6 +40,21 @@ app.use('/api/products', productRoutes);
 app.use('/api/banners', bannerRoutes);
 app.use('/api/settings', settingRoutes);
 app.use('/api/posts', postRoutes); // Rota para posts da comunidade
+
+// --- Serve Frontend in Production ---
+if (process.env.NODE_ENV === 'production') {
+  // Define o caminho para a pasta de build do frontend
+  const frontendDistPath = path.join(__dirname, '..', 'frontend', 'dist');
+  
+  // Serve os arquivos estáticos do React
+  app.use(express.static(frontendDistPath));
+
+  // O "catchall" handler: para qualquer requisição que não corresponda a uma rota da API,
+  // envia de volta o arquivo index.html do React.
+  app.get('*', (req, res) => {
+    res.sendFile(path.resolve(frontendDistPath, 'index.html'));
+  });
+}
 
 // --- Centralized Error Handling Middleware ---
 app.use((err, req, res, next) => {

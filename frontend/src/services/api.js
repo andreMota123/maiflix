@@ -1,7 +1,10 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  // Usar um caminho relativo para a baseURL da API.
+  // Funciona porque em produção o frontend é servido do mesmo domínio que o backend.
+  // Em desenvolvimento, o proxy do Vite cuidará do redirecionamento.
+  baseURL: '/api',
 });
 
 // Interceptor para adicionar o token de autenticação em todas as requisições
