@@ -19,7 +19,6 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Fix: Replaced constructor with a class property for state initialization to resolve typing errors.
   state: ErrorBoundaryState = { hasError: false };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
@@ -783,7 +782,7 @@ const AdminFeedPage: FC<{
         <div className="p-4 sm:p-6 space-y-6">
             <form onSubmit={handleSubmit} className="bg-brand-surface rounded-xl p-4 space-y-4">
                 <h2 className="text-2xl font-bold text-white">{editingPost ? 'Editar Aviso' : 'Criar Novo Aviso'}</h2>
-                <Input label="Título" id="admin-post-title" value={title} onChange={(e) => setTitle(e.target.value)} required />
+                <Input label="Título" id="admin-post-title" type="text" value={title} onChange={(e) => setTitle(e.target.value)} required />
                 <textarea
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
@@ -902,7 +901,7 @@ const AdminUsersPage: FC<{
             <div className="bg-brand-surface rounded-xl p-6 w-full max-w-md shadow-lg" onClick={(e) => e.stopPropagation()}>
                 <h2 className="text-2xl font-bold text-white mb-4">Adicionar Novo Usuário</h2>
                 <form onSubmit={handleAddUserSubmit} className="space-y-4">
-                    <Input label="Nome Completo" id="new-user-name" value={name} onChange={e => setName(e.target.value)} required />
+                    <Input label="Nome Completo" id="new-user-name" type="text" value={name} onChange={e => setName(e.target.value)} required />
                     <Input label="Email" id="new-user-email" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
                     <div className="flex justify-end space-x-2 pt-4">
                         <Button type="button" variant="ghost" onClick={() => setIsAddModalOpen(false)}>Cancelar</Button>
@@ -920,7 +919,7 @@ const AdminUsersPage: FC<{
                 <div className="bg-brand-surface rounded-xl p-6 w-full max-w-md shadow-lg" onClick={(e) => e.stopPropagation()}>
                     <h2 className="text-2xl font-bold text-white mb-4">Editar Usuário</h2>
                     <form onSubmit={handleUpdateUserSubmit} className="space-y-4">
-                        <Input label="Nome Completo" id="edit-user-name" value={editName} onChange={e => setEditName(e.target.value)} required />
+                        <Input label="Nome Completo" id="edit-user-name" type="text" value={editName} onChange={e => setEditName(e.target.value)} required />
                         <div>
                             <label className="block text-sm font-medium text-brand-text-light mb-1">Email</label>
                             <input value={editingUser.email} disabled className="w-full px-3 py-2 bg-brand-bg/50 border border-brand-secondary rounded-lg cursor-not-allowed"/>
@@ -1074,26 +1073,26 @@ const AdminProductsPage: FC<{
                 <div className="bg-brand-surface rounded-xl p-6 w-full max-w-lg shadow-lg" onClick={(e) => e.stopPropagation()}>
                     <h2 className="text-2xl font-bold text-white mb-4">{product ? 'Editar Produto' : 'Adicionar Novo Produto'}</h2>
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        <Input label="Nome do Produto" id="prod-name" value={name} onChange={e => setName(e.target.value)} required />
-                        <Input label="URL da Miniatura" id="prod-thumb" value={thumbnailUrl} onChange={e => setThumbnailUrl(e.target.value)} placeholder="https://exemplo.com/imagem.jpg" required />
+                        <Input label="Nome do Produto" id="prod-name" type="text" value={name} onChange={e => setName(e.target.value)} required />
+                        <Input label="URL da Miniatura" id="prod-thumb" type="text" value={thumbnailUrl} onChange={e => setThumbnailUrl(e.target.value)} placeholder="https://exemplo.com/imagem.jpg" required />
                         <div>
                             <label htmlFor="prod-desc" className="block text-sm font-medium text-brand-text-light mb-1">Descrição</label>
                             <textarea id="prod-desc" value={description} onChange={e => setDescription(e.target.value)} rows={3} className="w-full px-3 py-2 bg-brand-bg border border-brand-secondary rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary" required />
                         </div>
                         <div>
                             <label htmlFor="prod-type" className="block text-sm font-medium text-brand-text-light mb-1">Tipo de Arquivo</label>
-                            {/* FIX: A type assertion ensures the string from the event target's value conforms to the expected literal type. */}
                             <select id="prod-type" value={fileType} onChange={e => setFileType(e.target.value as 'SVG' | 'PDF' | 'STUDIO')} className="w-full px-3 py-2 bg-brand-bg border border-brand-secondary rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary">
                                 <option value="SVG">SVG</option>
                                 <option value="PDF">PDF</option>
                                 <option value="STUDIO">STUDIO</option>
                             </select>
                         </div>
-                        <Input label="URL para Download" id="prod-download" value={downloadUrl} onChange={e => setDownloadUrl(e.target.value)} required />
+                        <Input label="URL para Download" id="prod-download" type="text" value={downloadUrl} onChange={e => setDownloadUrl(e.target.value)} required />
                         <div>
                             <Input 
                                 label="URL do Vídeo do YouTube (opcional)" 
                                 id="prod-youtube" 
+                                type="text"
                                 value={youtubeUrl} 
                                 onChange={(e) => {
                                     setYoutubeUrl(e.target.value);
@@ -1230,10 +1229,10 @@ const AdminBannersPage: FC<{
                 <div className="bg-brand-surface rounded-xl p-6 w-full max-w-lg shadow-lg" onClick={(e) => e.stopPropagation()}>
                     <h2 className="text-2xl font-bold text-white mb-4">{banner ? 'Editar Banner' : 'Adicionar Novo Banner'}</h2>
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        <Input label="Título" id="banner-title" value={title} onChange={e => setTitle(e.target.value)} required />
-                        <Input label="Subtítulo" id="banner-subtitle" value={subtitle} onChange={e => setSubtitle(e.target.value)} required />
-                        <Input label="URL da Imagem" id="banner-image" value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://exemplo.com/imagem.jpg" required />
-                        <Input label="URL do Link (opcional)" id="banner-link" value={linkUrl} onChange={e => setLinkUrl(e.target.value)} placeholder="https://exemplo.com/pagina" />
+                        <Input label="Título" id="banner-title" type="text" value={title} onChange={e => setTitle(e.target.value)} required />
+                        <Input label="Subtítulo" id="banner-subtitle" type="text" value={subtitle} onChange={e => setSubtitle(e.target.value)} required />
+                        <Input label="URL da Imagem" id="banner-image" type="text" value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://exemplo.com/imagem.jpg" required />
+                        <Input label="URL do Link (opcional)" id="banner-link" type="text" value={linkUrl} onChange={e => setLinkUrl(e.target.value)} placeholder="https://exemplo.com/pagina" />
                         <div className="flex justify-end space-x-2 pt-4">
                             <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
                             <Button type="submit">{banner ? 'Salvar Alterações' : 'Adicionar'}</Button>
@@ -1358,6 +1357,7 @@ const AdminSettingsPage: FC<{
                         <Input
                             label="URL Completa"
                             id="whatsapp-link"
+                            type="text"
                             value={link}
                             onChange={(e) => setLink(e.target.value)}
                             placeholder="https://wa.me/..."
@@ -1395,8 +1395,8 @@ const EditProfileModal: FC<{
                     <div className="flex justify-center mb-4">
                         <img src={avatarUrl || `https://picsum.photos/seed/${user.id}/100/100`} alt="Avatar Preview" className="w-24 h-24 rounded-full object-cover ring-2 ring-brand-primary" />
                     </div>
-                    <Input label="Nome Completo" id="profile-name" value={name} onChange={e => setName(e.target.value)} required />
-                    <Input label="URL do Avatar" id="profile-avatar" value={avatarUrl} onChange={e => setAvatarUrl(e.target.value)} required />
+                    <Input label="Nome Completo" id="profile-name" type="text" value={name} onChange={e => setName(e.target.value)} required />
+                    <Input label="URL do Avatar" id="profile-avatar" type="text" value={avatarUrl} onChange={e => setAvatarUrl(e.target.value)} required />
                     
                     <div className="flex justify-end space-x-2 pt-4">
                         <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
@@ -1535,7 +1535,6 @@ const App: FC = () => {
                     }
                 }
             } catch (e: unknown) {
-                // Fix: Cast the caught error to a string to ensure type safety with console.error.
                 console.error("Could not parse colors from local storage:", String(e));
             }
         }

@@ -1,6 +1,5 @@
 import React from 'react';
 
-// FIX: Added a JSDoc type definition to ensure TypeScript can correctly infer the types for this functional component's props within .tsx files.
 /**
  * @type {React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'ghost' }>}
  */

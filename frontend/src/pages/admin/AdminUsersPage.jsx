@@ -75,7 +75,7 @@ const AdminUsersPage = () => {
                 <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-lg" onClick={(e) => e.stopPropagation()}>
                     <h2 className="text-2xl font-bold text-white mb-4">Adicionar Novo Usuário</h2>
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        <Input label="Nome Completo" id="new-user-name" value={name} onChange={e => setName(e.target.value)} required />
+                        <Input label="Nome Completo" id="new-user-name" type="text" value={name} onChange={e => setName(e.target.value)} required />
                         <Input label="Email" id="new-user-email" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
                         <Input label="Senha" id="new-user-password" type="password" value={password} onChange={e => setPassword(e.target.value)} required />
                         <div className="flex justify-end space-x-2 pt-4">
@@ -115,7 +115,7 @@ const AdminUsersPage = () => {
                 <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-lg" onClick={(e) => e.stopPropagation()}>
                     <h2 className="text-2xl font-bold text-white mb-4">Editar Usuário</h2>
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        <Input label="Nome Completo" id="edit-user-name" value={name} onChange={e => setName(e.target.value)} required />
+                        <Input label="Nome Completo" id="edit-user-name" type="text" value={name} onChange={e => setName(e.target.value)} required />
                         <Input label="Nova Senha (opcional)" id="edit-user-password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Deixe em branco para não alterar" />
                         <div className="flex justify-end space-x-2 pt-4">
                             <Button type="button" variant="ghost" onClick={() => setIsEditModalOpen(false)}>Cancelar</Button>
@@ -149,16 +149,13 @@ const AdminUsersPage = () => {
                                 <img src={user.avatarUrl} alt={user.name} className="w-12 h-12 rounded-full" />
                                 <div>
                                     <p className="font-semibold text-white">{user.name}</p>
-                                    {/* Fix: Use the correct property `email` from the user object. */}
                                     <p className="text-sm text-gray-400">{user.email}</p>
                                 </div>
                             </div>
                             <div className="flex items-center space-x-2 self-end sm:self-center">
-                                {/* Fix: Use the correct property `subscriptionStatus` from the user object. */}
                                 <span className={`px-2 py-1 text-xs font-semibold rounded-full ${user.subscriptionStatus === 'active' ? 'bg-green-500/20 text-green-300' : 'bg-yellow-500/20 text-yellow-300'}`}>
                                     {user.subscriptionStatus === 'active' ? 'Ativo' : 'Inativo'}
                                 </span>
-                                {/* Fix: Use the correct property `subscriptionStatus` from the user object. */}
                                 {user.subscriptionStatus === 'active' ? (
                                     <button onClick={() => handleUpdateUserStatus(user._id, 'inactive')} className="p-2 text-gray-400 hover:text-yellow-400" aria-label="Desativar assinatura">
                                         <LockClosedIcon className="w-5 h-5" />

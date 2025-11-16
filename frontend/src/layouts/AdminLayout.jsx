@@ -3,17 +3,18 @@ import { NavLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { InfoIcon, UsersIcon, BoxIcon, PhotoIcon, Cog6ToothIcon, LogoutIcon } from '../components/Icons';
 
+// FIX: Using full, absolute paths for nested routing within /admin to be explicit.
 const navItems = [
-    { label: "Avisos", icon: InfoIcon, path: "/" },
-    { label: "Usuários", icon: UsersIcon, path: "/users" },
-    { label: "Produtos", icon: BoxIcon, path: "/products" },
-    { label: "Banners", icon: PhotoIcon, path: "/banners" },
-    { label: "Geral", icon: Cog6ToothIcon, path: "/settings" },
+    { label: "Avisos", icon: InfoIcon, path: "/admin" },
+    { label: "Usuários", icon: UsersIcon, path: "/admin/users" },
+    { label: "Produtos", icon: BoxIcon, path: "/admin/products" },
+    { label: "Banners", icon: PhotoIcon, path: "/admin/banners" },
+    { label: "Geral", icon: Cog6ToothIcon, path: "/admin/settings" },
 ];
 
-// FIX: Added a JSDoc type definition to ensure TypeScript correctly infers the 'children' prop for this functional component.
+// FIX: Changed JSDoc to use @param to fix type inference issues in TSX files.
 /**
- * @type {React.FC<{ children: React.ReactNode }>}
+ * @param {{ children: React.ReactNode }} props
  */
 const AdminLayout = ({ children }) => {
     const { auth, logout } = useAuth();
@@ -25,7 +26,7 @@ const AdminLayout = ({ children }) => {
                     <NavLink
                         key={item.label}
                         to={item.path}
-                        end={item.path === '/'}
+                        end={item.path === '/admin'}
                         className={({ isActive }) =>
                             `flex items-center space-x-3 p-3 rounded-lg transition-colors ${
                                 isActive

@@ -18,7 +18,6 @@ const createAdmin = async () => {
     await mongoose.connect(process.env.DATABASE_URL);
     logger.info('Conectado ao MongoDB com sucesso!');
     
-    // Fix: Use correct property 'email' as defined in the User schema.
     const existingAdmin = await User.findOne({ email: ADMIN_EMAIL });
 
     if (existingAdmin) {
@@ -30,7 +29,6 @@ const createAdmin = async () => {
         existingAdmin.name = ADMIN_NAME;
         updated = true;
       }
-      // Fix: Use correct property 'role' as defined in the User schema.
       if (existingAdmin.role !== 'admin') {
         existingAdmin.role = 'admin';
         updated = true;
@@ -47,7 +45,6 @@ const createAdmin = async () => {
 
     } else {
       logger.info('Criando novo usuário administrador...');
-      // Fix: Use correct properties 'email', 'password', 'role', and 'subscriptionStatus' as defined in the User schema.
       const adminUser = new User({
         name: ADMIN_NAME,
         email: ADMIN_EMAIL,

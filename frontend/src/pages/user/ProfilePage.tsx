@@ -32,9 +32,7 @@ const EditProfileModal: FC<{ user: User; onClose: () => void; onSave: (updates: 
                     <div className="flex justify-center mb-4">
                         <img src={avatarUrl} alt="Avatar Preview" className="w-24 h-24 rounded-full object-cover ring-2 ring-brand-primary" />
                     </div>
-                    {/* Fix: Added the required 'type' prop to the Input component. */}
                     <Input label="Nome Completo" id="profile-name" type="text" value={name} onChange={e => setName(e.target.value)} required />
-                    {/* Fix: Added the required 'type' prop to the Input component. */}
                     <Input label="URL do Avatar" id="profile-avatar" type="text" value={avatarUrl} onChange={e => setAvatarUrl(e.target.value)} />
                     <div className="flex justify-end space-x-2 pt-4">
                         <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
