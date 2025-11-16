@@ -1,11 +1,12 @@
+
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Input } from '../components/ui/Input';
 
 const LoginPage = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('levitamota@gmail.com');
+  const [password, setPassword] = useState('Andre9157$');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState('user');
@@ -23,7 +24,13 @@ const LoginPage = () => {
       await login(email, password);
       // After successful login, the AuthContext will have the user's role.
       // The main App component will then automatically navigate to the correct dashboard.
-      navigate(from, { replace: true });
+      // A small delay to allow context to update before navigation attempt.
+      setTimeout(() => {
+        const userRole = JSON.parse(localStorage.getItem('maiflix_user_role'));
+        const destination = from === "/" ? (userRole === 'admin' ? '/admin' : '/') : from;
+        navigate(destination, { replace: true });
+      }, 100);
+
     } catch (err) {
       setError(err.response?.data?.message || 'Erro ao fazer login. Verifique suas credenciais.');
     } finally {
