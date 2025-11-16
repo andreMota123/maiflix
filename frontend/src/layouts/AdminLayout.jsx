@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { InfoIcon, UsersIcon, BoxIcon, PhotoIcon, Cog6ToothIcon, LogoutIcon } from '../components/Icons';
 
@@ -12,11 +12,8 @@ const navItems = [
     { label: "Geral", icon: Cog6ToothIcon, path: "/admin/settings" },
 ];
 
-// FIX: Changed JSDoc to use @param to fix type inference issues in TSX files.
-/**
- * @param {{ children: React.ReactNode }} props
- */
-const AdminLayout = ({ children }) => {
+// FIX: Removed children prop and JSDoc, as this is now a layout route component using an Outlet.
+const AdminLayout = () => {
     const { auth, logout } = useAuth();
 
     const SideNav = () => (
@@ -64,7 +61,8 @@ const AdminLayout = ({ children }) => {
             <div className="flex flex-1 overflow-hidden">
                 <SideNav />
                 <main className="flex-1 overflow-y-auto">
-                    {children}
+                    {/* FIX: Replaced {children} with <Outlet /> to support nested routing in React Router v6. */}
+                    <Outlet />
                 </main>
             </div>
         </div>

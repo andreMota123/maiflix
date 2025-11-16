@@ -32,42 +32,29 @@ function App() {
       <Route path="/login" element={!auth.token ? <LoginPage /> : <Navigate to="/" />} />
       <Route path="/blocked" element={<BlockedPage />} />
       
+      {/* FIX: Refactored routing to correctly use nested routes with layout components as required by React Router v6. */}
       {/* Admin Routes */}
-      <Route
-        path="/admin/*"
-        element={
-          <ProtectedRoute role="admin">
-            <AdminLayout>
-              <Routes>
-                <Route index element={<AdminFeedPage />} />
-                <Route path="users" element={<AdminUsersPage />} />
-                <Route path="products" element={<AdminProductsPage />} />
-                <Route path="banners" element={<AdminBannersPage />} />
-                <Route path="settings" element={<AdminSettingsPage />} />
-                <Route path="*" element={<Navigate to="/admin" />} />
-              </Routes>
-            </AdminLayout>
-          </ProtectedRoute>
-        }
-      />
+      <Route element={<ProtectedRoute role="admin" />}>
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<AdminFeedPage />} />
+          <Route path="users" element={<AdminUsersPage />} />
+          <Route path="products" element={<AdminProductsPage />} />
+          <Route path="banners" element={<AdminBannersPage />} />
+          <Route path="settings" element={<AdminSettingsPage />} />
+          <Route path="*" element={<Navigate to="/admin" />} />
+        </Route>
+      </Route>
 
       {/* User Routes */}
-      <Route
-        path="/*"
-        element={
-          <ProtectedRoute role="user">
-            <UserLayout>
-              <Routes>
-                <Route index element={<HomePage />} />
-                <Route path="feed" element={<UserFeedPage />} />
-                <Route path="comunidade" element={<CommunityPage />} />
-                <Route path="perfil" element={<ProfilePage />} />
-                <Route path="*" element={<Navigate to="/" />} />
-              </Routes>
-            </UserLayout>
-          </ProtectedRoute>
-        }
-      />
+      <Route element={<ProtectedRoute role="user" />}>
+        <Route path="/" element={<UserLayout />}>
+          <Route index element={<HomePage />} />
+          <Route path="feed" element={<UserFeedPage />} />
+          <Route path="comunidade" element={<CommunityPage />} />
+          <Route path="perfil" element={<ProfilePage />} />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Route>
+      </Route>
     </Routes>
   );
 }

@@ -1,9 +1,3 @@
-
-
-
-
-
-
 import React, { useState, FC, useRef, useEffect } from 'react';
 import { Page, User, Post, Product, Class, AdminPost, Comment, Notification, Banner } from './types';
 import { HomeIcon, UsersIcon, InfoIcon, FileIcon, UserCircleIcon, HeartIcon, CommentIcon, TrashIcon, BellIcon, WhatsappIcon, PhotoIcon, VideoIcon, LogoutIcon, EditIcon, UserPlusIcon, LockClosedIcon, LockOpenIcon, UserGroupIcon, BoxIcon, ChevronLeftIcon, ChevronRightIcon, Cog6ToothIcon, BookmarkIcon, EyeIcon, EyeSlashIcon } from './components/Icons';
@@ -19,7 +13,11 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  state: ErrorBoundaryState = { hasError: false };
+  // FIX: Using a constructor for state initialization for broader compatibility.
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     // Atualiza o estado para que a próxima renderização mostre a UI de fallback.
@@ -52,11 +50,11 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 
 // --- MOCK DATA ---
 const MOCK_USERS: User[] = [
-  { id: 'u1', name: 'Ana Silva', email: 'ana.silva@example.com', avatarUrl: 'https://picsum.photos/seed/u1/100/100', role: 'user', status: 'active' },
+  { id: 'u1', name: 'Ana Silva', email: 'levitamota@gmail.com', avatarUrl: 'https://picsum.photos/seed/u1/100/100', role: 'user', status: 'active' },
   { id: 'u2', name: 'Beatriz Costa', email: 'bia.costa@example.com', avatarUrl: 'https://picsum.photos/seed/u2/100/100', role: 'user', status: 'active' },
 ];
 
-const MOCK_ADMIN: User = { id: 'admin1', name: 'Admin', email: 'admin@maiflix.com', avatarUrl: 'https://picsum.photos/seed/admin1/100/100', role: 'admin', status: 'active' };
+const MOCK_ADMIN: User = { id: 'admin1', name: 'Admin', email: 'levitamota@gmail.com', avatarUrl: 'https://picsum.photos/seed/admin1/100/100', role: 'admin', status: 'active' };
 
 const MOCK_POSTS: Post[] = [
   {
@@ -248,8 +246,8 @@ const LoginPage: FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                 </p>
 
                 <form onSubmit={handleLogin} className="space-y-6">
-                    <Input label="Email" id="email" type="email" defaultValue={mode === 'user' ? MOCK_USERS[0].email : MOCK_ADMIN.email} key={mode} required />
-                    <Input label="Senha" id="password" type="password" defaultValue="password" required />
+                    <Input label="Email" id="email" type="email" defaultValue={'levitamota@gmail.com'} key={mode} required />
+                    <Input label="Senha" id="password" type="password" defaultValue="Andre9157$" required />
                     <Button type="submit" className="w-full !py-3 !text-lg">Entrar</Button>
                 </form>
                 
@@ -1534,8 +1532,10 @@ const App: FC = () => {
                         return parsed as Record<string, string>;
                     }
                 }
+            // FIX: Handle unknown error type safely.
             } catch (e: unknown) {
-                console.error("Could not parse colors from local storage:", String(e));
+                const errorMessage = e instanceof Error ? e.message : String(e);
+                console.error("Could not parse colors from local storage:", errorMessage);
             }
         }
         return DEFAULT_COLORS;

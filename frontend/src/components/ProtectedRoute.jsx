@@ -1,10 +1,10 @@
 import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 // FIX: Added a JSDoc type definition to ensure TypeScript can correctly infer the type of the 'children' and 'role' props for this functional component within a .jsx file.
 /**
- * @type {React.FC<{ children: React.ReactNode, role?: 'admin' | 'user' }>}
+ * @type {React.FC<{ children?: React.ReactNode, role?: 'admin' | 'user' }>}
  */
 const ProtectedRoute = ({ children, role }) => {
   const { auth } = useAuth();
@@ -27,8 +27,9 @@ const ProtectedRoute = ({ children, role }) => {
     // If a user tries to access an admin route, or vice-versa, redirect them.
     return <Navigate to={auth.user.role === 'admin' ? '/admin' : '/'} replace />;
   }
-
-  return children;
+  
+  // FIX: Render children if provided (for wrapping specific components) or an Outlet if used as a layout route.
+  return children ?? <Outlet />;
 };
 
 export default ProtectedRoute;
