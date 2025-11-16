@@ -19,26 +19,42 @@ exports.getAllUsers = async (req, res, next) => {
 exports.createUser = async (req, res, next) => {
   const { name, email, password } = req.body;
 
-  // FIX: Strengthened validation to explicitly check for non-empty strings, preventing invalid data from reaching the database and causing unique index errors with null values.
-  if (typeof name !== 'string' || typeof email !== 'string' || typeof password !== 'string' || name.trim() === '' || email.trim() === '' || password === '') {
-    logger.warn('Tentativa de criar usuário com dados inválidos.', { body: req.body });
-    return res.status(400).json({ message: 'Nome, email e senha são obrigatórios e não podem estar vazios.' });
+  // Reworked validation for more clarity and robustness.
+  if (!name || typeof name !== 'string' || name.trim() === '') {
+    return res.status(400).json({ message: 'O nome é obrigatório e não pode estar vazio.' });
+  }
+  if (!email || typeof email !== 'string' || email.trim() === '') {
+    return res.status(400).json({ message: 'O email é obrigatório e não pode estar vazio.' });
+  }
+  if (!password || typeof password !== 'string' || password.length < 6) {
+    return res.status(400).json({ message: 'A senha é obrigatória e deve ter pelo menos 6 caracteres.' });
   }
 
   try {
-    // Use toLowerCase() to match schema behavior for uniqueness check
-    const userExists = await User.findOne({ email: email.toLowerCase() });
+    // Ensure email is trimmed and lowercased for consistency
+    const processedEmail = email.trim().toLowerCase();
+
+    const userExists = await User.findOne({ email: processedEmail });
     if (userExists) {
-      return res.status(400).json({ message: 'Usuário com este email já existe.' });
+      return res.status(400).json({ message: 'Um usuário com este email já existe.' });
     }
+
     const user = await User.create({
-      name,
-      email,
-      password, // Password will be hashed by pre-save hook
+      name: name.trim(),
+      email: processedEmail,
+      password: password,
       subscriptionStatus: 'active', // Assume active when created by admin
     });
+
     res.status(201).json(user);
   } catch (error) {
+    // Specific handling for duplicate key errors (code 11000)
+    if (error.code === 11000) {
+      logger.warn('Falha ao criar usuário: Email duplicado.', { email: email, error: error.message });
+      return res.status(409).json({ message: 'Este email já está cadastrado no sistema.' });
+    }
+    
+    // Pass other errors to the generic handler
     next(error);
   }
 };
@@ -53,10 +69,19 @@ exports.updateUser = async (req, res, next) => {
     if (!user) {
       return res.status(404).json({ message: 'Usuário não encontrado.' });
     }
-    user.name = name || user.name;
-    if (password) {
-      user.password = password; // The pre-save hook will hash it
+
+    if (name && typeof name === 'string' && name.trim() !== '') {
+        user.name = name.trim();
     }
+    
+    if (password) {
+        if (typeof password === 'string' && password.length >= 6) {
+            user.password = password; // The pre-save hook will hash it
+        } else {
+            return res.status(400).json({ message: 'A nova senha deve ter pelo menos 6 caracteres.' });
+        }
+    }
+
     const updatedUser = await user.save();
     res.status(200).json(updatedUser);
   } catch (error) {
