@@ -17,8 +17,14 @@ const activateSubscription = async (customer) => {
       logger.info('Assinatura ativada com sucesso para usuário existente', { customerEmail: email, userId: user._id });
     } else {
       const fullName = customer.full_name || 'Novo Assinante';
-      const firstName = fullName.split(' ')[0];
-      const plainTextPassword = `${firstName.toLowerCase()}1234`;
+      const firstName = fullName.split(' ')[0] || 'aluno'; // Fallback for empty name
+      
+      // Sanitize and ensure base password part is not too short
+      let basePassword = firstName.toLowerCase().replace(/[^a-z0-9]/gi, ''); 
+      if (basePassword.length < 2) {
+          basePassword = 'aluno';
+      }
+      const plainTextPassword = `${basePassword}1234`;
 
       const newUser = new User({
         email: email,
