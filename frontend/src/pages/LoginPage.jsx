@@ -1,12 +1,23 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Input } from '../components/ui/Input';
 
+// Credentials for easy testing of both roles
+const ADMIN_CREDENTIALS = {
+  email: 'levitamota@gmail.com',
+  password: 'Andre9157$',
+};
+const USER_CREDENTIALS = {
+  email: 'assinante@example.com',
+  password: 'senha123',
+};
+
+
 const LoginPage = () => {
-  const [email, setEmail] = useState('levitamota@gmail.com');
-  const [password, setPassword] = useState('Andre9157$');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState('user');
@@ -15,6 +26,19 @@ const LoginPage = () => {
   const location = useLocation();
 
   const from = location.state?.from?.pathname || "/";
+
+  // Effect to automatically fill credentials when mode changes
+  useEffect(() => {
+    if (mode === 'user') {
+      setEmail(USER_CREDENTIALS.email);
+      setPassword(USER_CREDENTIALS.password);
+    } else {
+      setEmail(ADMIN_CREDENTIALS.email);
+      setPassword(ADMIN_CREDENTIALS.password);
+    }
+    setError(''); // Clear any previous errors
+  }, [mode]);
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -37,7 +61,6 @@ const LoginPage = () => {
   
   const toggleMode = () => {
     setMode(prev => (prev === 'user' ? 'admin' : 'user'));
-    setError(''); // Clear error on mode toggle
   };
 
   return (
@@ -47,6 +70,13 @@ const LoginPage = () => {
         <p className="text-center text-gray-400 mb-8">
           {mode === 'user' ? 'Seu universo de criatividade.' : 'Acesso Administrativo'}
         </p>
+
+        <div className="text-center bg-gray-700/50 p-3 rounded-lg mb-6 text-sm text-gray-300">
+            <p>
+                <strong>Para testar:</strong><br />
+                Alterne entre os modos de login. O usuário de assinante <strong>({USER_CREDENTIALS.email})</strong> precisa ser criado no painel de admin primeiro com a senha <strong>{USER_CREDENTIALS.password}</strong>.
+            </p>
+        </div>
         
         <form onSubmit={handleSubmit} className="space-y-6">
           <Input 
