@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const logger = require('../utils/logger');
 
 // @desc    Get all non-admin users
 // @route   GET /api/users
@@ -18,9 +19,10 @@ exports.getAllUsers = async (req, res, next) => {
 exports.createUser = async (req, res, next) => {
   const { name, email, password } = req.body;
 
-  // Explicit server-side validation to prevent null/undefined values
-  if (!name || !email || !password) {
-    return res.status(400).json({ message: 'Nome, email e senha são obrigatórios.' });
+  // FIX: Strengthened validation to explicitly check for non-empty strings, preventing invalid data from reaching the database and causing unique index errors with null values.
+  if (typeof name !== 'string' || typeof email !== 'string' || typeof password !== 'string' || name.trim() === '' || email.trim() === '' || password === '') {
+    logger.warn('Tentativa de criar usuário com dados inválidos.', { body: req.body });
+    return res.status(400).json({ message: 'Nome, email e senha são obrigatórios e não podem estar vazios.' });
   }
 
   try {
