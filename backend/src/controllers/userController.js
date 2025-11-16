@@ -17,8 +17,15 @@ exports.getAllUsers = async (req, res, next) => {
 // @access  Private/Admin
 exports.createUser = async (req, res, next) => {
   const { name, email, password } = req.body;
+
+  // Explicit server-side validation to prevent null/undefined values
+  if (!name || !email || !password) {
+    return res.status(400).json({ message: 'Nome, email e senha são obrigatórios.' });
+  }
+
   try {
-    const userExists = await User.findOne({ email });
+    // Use toLowerCase() to match schema behavior for uniqueness check
+    const userExists = await User.findOne({ email: email.toLowerCase() });
     if (userExists) {
       return res.status(400).json({ message: 'Usuário com este email já existe.' });
     }

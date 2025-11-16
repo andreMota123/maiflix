@@ -15,11 +15,8 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // FIX: Replaced direct state initialization with a constructor to resolve the "props do not exist" type error.
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false };
-  }
+  // FIX: Replaced constructor with a direct state initializer. This is a more modern approach and resolves the errors with 'state' and 'props' properties not being found.
+  state: ErrorBoundaryState = { hasError: false };
 
   static getDerivedStateFromError(_error: Error): ErrorBoundaryState {
     // Atualiza o estado para que a próxima renderização mostre a UI de fallback.
@@ -1534,10 +1531,9 @@ const App: FC = () => {
                         return parsed as Record<string, string>;
                     }
                 }
-            // FIX: Handle unknown error type safely and ensure the initializer function returns a value on error.
+// FIX: Handle unknown error type safely and ensure the initializer function returns a value on error.
             } catch (e) {
                 console.error("Could not parse colors from local storage", e);
-                return DEFAULT_COLORS;
             }
         }
         return DEFAULT_COLORS;
