@@ -4,6 +4,7 @@
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
+    "dev": "nodemon app.js",
     "create-admin": "node scripts/create-admin.js"
   },
   "dependencies": {
@@ -16,6 +17,9 @@
     "mongoose": "^7.6.3",
     "nodemailer": "^6.9.7",
     "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
   },
   "engines": {
     "node": ">=18.0.0"

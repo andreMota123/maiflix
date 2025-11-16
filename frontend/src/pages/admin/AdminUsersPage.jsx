@@ -149,14 +149,17 @@ const AdminUsersPage = () => {
                                 <img src={user.avatarUrl} alt={user.name} className="w-12 h-12 rounded-full" />
                                 <div>
                                     <p className="font-semibold text-white">{user.name}</p>
-                                    <p className="text-sm text-gray-400">{user['e-mail']}</p>
+                                    {/* Fix: Use the correct property `email` from the user object. */}
+                                    <p className="text-sm text-gray-400">{user.email}</p>
                                 </div>
                             </div>
                             <div className="flex items-center space-x-2 self-end sm:self-center">
-                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${user.statusAssinatura === 'active' ? 'bg-green-500/20 text-green-300' : 'bg-yellow-500/20 text-yellow-300'}`}>
-                                    {user.statusAssinatura === 'active' ? 'Ativo' : 'Inativo'}
+                                {/* Fix: Use the correct property `subscriptionStatus` from the user object. */}
+                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${user.subscriptionStatus === 'active' ? 'bg-green-500/20 text-green-300' : 'bg-yellow-500/20 text-yellow-300'}`}>
+                                    {user.subscriptionStatus === 'active' ? 'Ativo' : 'Inativo'}
                                 </span>
-                                {user.statusAssinatura === 'active' ? (
+                                {/* Fix: Use the correct property `subscriptionStatus` from the user object. */}
+                                {user.subscriptionStatus === 'active' ? (
                                     <button onClick={() => handleUpdateUserStatus(user._id, 'inactive')} className="p-2 text-gray-400 hover:text-yellow-400" aria-label="Desativar assinatura">
                                         <LockClosedIcon className="w-5 h-5" />
                                     </button>

@@ -5,7 +5,7 @@ const User = require('../models/User');
 // @access  Private/Admin
 exports.getAllUsers = async (req, res, next) => {
   try {
-    const users = await User.find({ papel: 'user' }).sort({ createdAt: -1 });
+    const users = await User.find({ role: 'user' }).sort({ createdAt: -1 });
     res.status(200).json(users);
   } catch (error) {
     next(error);
@@ -18,15 +18,15 @@ exports.getAllUsers = async (req, res, next) => {
 exports.createUser = async (req, res, next) => {
   const { name, email, password } = req.body;
   try {
-    const userExists = await User.findOne({ 'e-mail': email });
+    const userExists = await User.findOne({ email });
     if (userExists) {
       return res.status(400).json({ message: 'Usuário com este email já existe.' });
     }
     const user = await User.create({
       name,
-      'e-mail': email,
-      senha: password, // Password will be hashed by pre-save hook
-      statusAssinatura: 'active', // Assume active when created by admin
+      email,
+      password, // Password will be hashed by pre-save hook
+      subscriptionStatus: 'active', // Assume active when created by admin
     });
     res.status(201).json(user);
   } catch (error) {
@@ -46,7 +46,7 @@ exports.updateUser = async (req, res, next) => {
     }
     user.name = name || user.name;
     if (password) {
-      user.senha = password; // The pre-save hook will hash it
+      user.password = password; // The pre-save hook will hash it
     }
     const updatedUser = await user.save();
     res.status(200).json(updatedUser);
@@ -64,7 +64,7 @@ exports.deleteUser = async (req, res, next) => {
     if (!user) {
       return res.status(404).json({ message: 'Usuário não encontrado.' });
     }
-    if (user.papel === 'admin') {
+    if (user.role === 'admin') {
       return res.status(400).json({ message: 'Não é possível excluir um administrador.' });
     }
     await User.deleteOne({ _id: req.params.id });
@@ -90,7 +90,7 @@ exports.updateUserStatus = async (req, res, next) => {
     if (!user) {
       return res.status(404).json({ message: 'Usuário não encontrado.' });
     }
-    user.statusAssinatura = status;
+    user.subscriptionStatus = status;
     await user.save();
     res.status(200).json(user);
   } catch (error) {

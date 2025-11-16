@@ -17,8 +17,9 @@ const createAdmin = async () => {
     logger.info('Conectando ao banco de dados...');
     await mongoose.connect(process.env.DATABASE_URL);
     logger.info('Conectado ao MongoDB com sucesso!');
-
-    const existingAdmin = await User.findOne({ 'e-mail': ADMIN_EMAIL });
+    
+    // Fix: Use correct property 'email' as defined in the User schema.
+    const existingAdmin = await User.findOne({ email: ADMIN_EMAIL });
 
     if (existingAdmin) {
       logger.info('Usuário administrador já existe. Verificando se precisa de atualização...');
@@ -29,12 +30,13 @@ const createAdmin = async () => {
         existingAdmin.name = ADMIN_NAME;
         updated = true;
       }
-      if (existingAdmin.papel !== 'admin') {
-        existingAdmin.papel = 'admin';
+      // Fix: Use correct property 'role' as defined in the User schema.
+      if (existingAdmin.role !== 'admin') {
+        existingAdmin.role = 'admin';
         updated = true;
       }
       // You can also add logic to update password if needed, for now we just update name/role.
-      // existingAdmin.senha = ADMIN_PASSWORD; // The pre-save hook will hash it
+      // existingAdmin.password = ADMIN_PASSWORD; // The pre-save hook will hash it
 
       if(updated) {
         await existingAdmin.save();
@@ -45,12 +47,13 @@ const createAdmin = async () => {
 
     } else {
       logger.info('Criando novo usuário administrador...');
+      // Fix: Use correct properties 'email', 'password', 'role', and 'subscriptionStatus' as defined in the User schema.
       const adminUser = new User({
         name: ADMIN_NAME,
-        'e-mail': ADMIN_EMAIL,
-        senha: ADMIN_PASSWORD, // The pre-save hook will encrypt this
-        papel: 'admin',
-        statusAssinatura: 'active', // Admin always active
+        email: ADMIN_EMAIL,
+        password: ADMIN_PASSWORD, // The pre-save hook will encrypt this
+        role: 'admin',
+        subscriptionStatus: 'active', // Admin always active
       });
       await adminUser.save();
       logger.info('Usuário administrador criado com sucesso.');

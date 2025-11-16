@@ -5,29 +5,26 @@ const userSchema = new mongoose.Schema({
   name: {
     type: String,
     required: true,
+    trim: true,
   },
-  // MUDANÇA: 'email' para 'e-mail' para corresponder ao banco de dados.
-  'e-mail': {
+  email: {
     type: String,
     required: true,
     unique: true,
     lowercase: true,
     trim: true,
   },
-  // MUDANÇA: 'password' para 'senha'.
-  senha: {
+  password: {
     type: String,
     required: true,
-    select: false, // Não retorna a senha em queries por padrão
+    select: false, // Do not return password in queries by default
   },
-  // MUDANÇA: 'role' para 'papel'.
-  papel: {
+  role: {
     type: String,
     enum: ['user', 'admin'],
     default: 'user',
   },
-  // MUDANÇA: 'subscriptionStatus' para 'statusAssinatura'.
-  statusAssinatura: {
+  subscriptionStatus: {
     type: String,
     enum: ['active', 'inactive', 'expired'],
     default: 'inactive',
@@ -35,27 +32,25 @@ const userSchema = new mongoose.Schema({
   avatarUrl: {
     type: String,
     default: function() {
-        // MUDANÇA: Usar 'this.e-mail' para gerar o avatar.
-        return `https://i.pravatar.cc/150?u=${this['e-mail']}`;
+        return `https://i.pravatar.cc/150?u=${this.email}`;
     }
   },
 }, { timestamps: true });
 
-// MUDANÇA: Hook do Mongoose para criptografar a 'senha' ANTES de salvar.
+// Mongoose hook to hash password BEFORE saving
 userSchema.pre('save', async function(next) {
-  // Executa o código apenas se a 'senha' foi modificada
-  if (!this.isModified('senha')) {
+  if (!this.isModified('password')) {
     return next();
   }
   
   const salt = await bcrypt.genSalt(12);
-  this.senha = await bcrypt.hash(this.senha, salt);
+  this.password = await bcrypt.hash(this.password, salt);
   next();
 });
 
-// MUDANÇA: Método para comparar a senha fornecida com a 'senha' com hash no banco de dados.
+// Method to compare candidate password with the hashed password in the DB
 userSchema.methods.comparePassword = function(candidatePassword) {
-  return bcrypt.compare(candidatePassword, this.senha);
+  return bcrypt.compare(candidatePassword, this.password);
 };
 
 const User = mongoose.model('User', userSchema);

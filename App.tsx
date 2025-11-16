@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useState, FC, useRef, useEffect } from 'react';
 import { Page, User, Post, Product, Class, AdminPost, Comment, Notification, Banner } from './types';
 import { HomeIcon, UsersIcon, InfoIcon, FileIcon, UserCircleIcon, HeartIcon, CommentIcon, TrashIcon, BellIcon, WhatsappIcon, PhotoIcon, VideoIcon, LogoutIcon, EditIcon, UserPlusIcon, LockClosedIcon, LockOpenIcon, UserGroupIcon, BoxIcon, ChevronLeftIcon, ChevronRightIcon, Cog6ToothIcon, BookmarkIcon, EyeIcon, EyeSlashIcon } from './components/Icons';
@@ -15,7 +17,7 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Fix for errors on lines 21, 35, 48, 1798: The constructor initializes state and props for the component, preventing runtime errors and resolving type-checking issues.
+  // Fix: Added constructor to initialize component state and handle props correctly.
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false };
@@ -1522,11 +1524,9 @@ const App: FC = () => {
     const [carouselDuration, setCarouselDuration] = useState(5000); // 5 seconds
     const [colors, setColors] = useState<Record<string, string>>(() => {
         const savedColors = localStorage.getItem('maiflix-colors');
-        // FIX: Safely parse colors from localStorage. JSON.parse can return an `unknown` type, so validation is necessary.
         if (savedColors) {
             try {
                 const parsed: unknown = JSON.parse(savedColors);
-                // FIX: The value from JSON.parse is unknown. Validate that it's an object and all its property values are strings before casting and returning.
                 if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
                     const allValuesAreStrings = Object.values(parsed).every(
                         (value) => typeof value === 'string'
@@ -1536,7 +1536,7 @@ const App: FC = () => {
                     }
                 }
             } catch (e) {
-                // Fix for error on line 1548: The caught error `e` is of type 'unknown'. It's converted to a string to be compatible with console.error.
+                // Fix: Cast the caught error to a string to ensure type safety with console.error.
                 console.error("Could not parse colors from local storage:", String(e));
             }
         }
@@ -1650,9 +1650,6 @@ const App: FC = () => {
         return <LoginPage onLogin={setCurrentUser} />;
     }
 
-    // FIX: Define a unified type for navigation items to ensure type safety.
-    // This resolves issues where TypeScript couldn't infer the item type within .map(),
-    // leading to an 'unknown' type error.
     type NavItem = {
         page: Page;
         icon: typeof HomeIcon;
@@ -1685,7 +1682,6 @@ const App: FC = () => {
             case Page.Comunidade:
                 return <CommunityPage currentUser={currentUser} onAddNotification={handleAddNotification} />;
             case Page.Users:
-                // FIX: Removed `as any` by using a wrapper function to ensure type compatibility for the onUpdateUser prop.
                 return currentUser.role === 'admin' ? <AdminUsersPage users={users.filter(u => u.role === 'user')} onAddUser={handleAddUser} onUpdateUser={(userId, updates) => handleUpdateUser(userId, updates)} onUpdateUserStatus={handleUpdateUserStatus} onDeleteUser={handleDeleteUser} /> : null;
             case Page.Products:
                 return currentUser.role === 'admin' ? <AdminProductsPage products={products} onAddProduct={handleAddProduct} onUpdateProduct={handleUpdateProduct} onDeleteProduct={handleDeleteProduct} /> : null;
@@ -1746,7 +1742,6 @@ const App: FC = () => {
     };
 
     const BottomNav: FC = () => {
-        // FIX: Create a variable with an explicit type to ensure TypeScript correctly infers the type of `item` inside the `.map()` function.
         const navItems: NavItem[] = currentUser.role === 'user' ? navItemsUser : navItemsAdmin;
         return (
             <nav className="fixed bottom-0 left-0 right-0 bg-brand-surface shadow-[0_-2px_10px_rgba(0,0,0,0.3)] z-40 md:hidden">
@@ -1758,7 +1753,6 @@ const App: FC = () => {
                             className={`flex flex-col items-center justify-center w-full pt-2 pb-1 transition-colors ${activePage === item.page ? 'text-brand-primary' : 'text-brand-text-light hover:text-white'}`}
                         >
                             <item.icon className="w-6 h-6" />
-                            {/* FIX: With a unified NavItem type, we can safely access optional properties and provide a fallback, resolving the ReactNode type error. */}
                             <span className="text-xs mt-1">{item.label || item.page}</span>
                         </button>
                     ))}
@@ -1768,7 +1762,6 @@ const App: FC = () => {
     };
 
     const SideNav: FC = () => {
-        // FIX: Create a variable with an explicit type to ensure TypeScript correctly infers the type of `item` inside the `.map()` function.
         const navItems: NavItem[] = currentUser.role === 'user' ? navItemsUser : navItemsAdmin;
         return (
             <aside className="hidden md:block w-64 bg-brand-surface p-4 flex-shrink-0 overflow-y-auto">
@@ -1780,7 +1773,6 @@ const App: FC = () => {
                             className={`flex items-center space-x-3 p-3 rounded-lg transition-colors ${activePage === item.page ? 'bg-brand-primary text-white' : 'text-brand-text-light hover:bg-brand-secondary hover:text-white'}`}
                         >
                             <item.icon className="w-6 h-6" />
-                            {/* FIX: With a unified NavItem type, we can safely access optional properties and provide a fallback, resolving the ReactNode type error. */}
                             <span className="font-semibold">{item.label || item.page}</span>
                         </button>
                     ))}
