@@ -21,9 +21,9 @@ const setupAdmin = async () => {
     const adminUser = new User({
       name: ADMIN_NAME,
       email: ADMIN_EMAIL,
-      password: ADMIN_PASSWORD, // O hook pre-save fará o hash
+      password: ADMIN_PASSWORD, // This will now use the virtual setter to trigger hashing
       role: 'admin',
-      subscriptionStatus: 'active', // Admin sempre ativo
+      subscriptionStatus: 'active', // Admin always active
     });
     await adminUser.save();
     logger.info(`Usuário administrador "${ADMIN_NAME}" <${ADMIN_EMAIL}> criado com sucesso.`);

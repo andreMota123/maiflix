@@ -6,7 +6,8 @@ const logger = require('../utils/logger');
 // @access  Private/Admin
 exports.getAllUsers = async (req, res, next) => {
   try {
-    const users = await User.find({ role: 'user' }).sort({ createdAt: -1 });
+    // Return all users, including admins, but sort to show users first.
+    const users = await User.find().sort({ role: 1, createdAt: -1 });
     res.status(200).json(users);
   } catch (error) {
     next(error);
@@ -35,7 +36,7 @@ exports.createUser = async (req, res, next) => {
     const user = await User.create({
       name,
       email,
-      passwordHash: password, // The pre-save hook will hash it
+      password, // Use the virtual setter
       role,
       subscriptionStatus,
     });
@@ -62,7 +63,7 @@ exports.updateUser = async (req, res, next) => {
 
         if (email && email.toLowerCase() !== user.email) {
             const existingUser = await User.findOne({ email: email.toLowerCase() });
-            if (existingUser) {
+            if (existingUser && existingUser._id.toString() !== user._id.toString()) {
                 return res.status(409).json({ message: 'Este email já está em uso por outro usuário.' });
             }
             user.email = email;
@@ -96,7 +97,7 @@ exports.changeUserPassword = async (req, res, next) => {
         if (!user) {
             return res.status(404).json({ message: 'Usuário não encontrado.' });
         }
-        user.passwordHash = newPassword; // The pre-save hook will hash it
+        user.password = newPassword; // Use the virtual setter
         await user.save();
         res.status(200).json({ message: 'Senha atualizada com sucesso.' });
     } catch (error) {

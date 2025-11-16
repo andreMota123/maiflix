@@ -23,7 +23,7 @@ const activateSubscription = async (customer) => {
       const newUser = new User({
         email: email,
         name: fullName,
-        passwordHash: plainTextPassword, // The pre-save hook will hash this value.
+        password: plainTextPassword, // Use the virtual setter which triggers the pre-save hook.
         subscriptionStatus: 'active',
         role: 'user',
       });
