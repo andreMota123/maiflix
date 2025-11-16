@@ -1,16 +1,34 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
-import { UserPlusIcon, EditIcon, TrashIcon, LockClosedIcon, LockOpenIcon } from '../../components/Icons';
+import { Input, Select } from '../../components/ui/Input';
+import { UserPlusIcon, EditIcon, TrashIcon, LockClosedIcon } from '../../components/Icons';
+
+const statusConfig = {
+    active: { text: 'Ativo', color: 'bg-green-500/20 text-green-300' },
+    inactive: { text: 'Inativo', color: 'bg-yellow-500/20 text-yellow-300' },
+    blocked: { text: 'Bloqueado', color: 'bg-red-500/20 text-red-300' },
+    deleted: { text: 'Removido', color: 'bg-gray-500/20 text-gray-300' },
+};
+
+const StatusBadge = ({ status }) => {
+    const config = statusConfig[status] || { text: 'Desconhecido', color: 'bg-gray-500/20 text-gray-300' };
+    return (
+        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${config.color}`}>
+            {config.text}
+        </span>
+    );
+};
 
 const AdminUsersPage = () => {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [editingUser, setEditingUser] = useState(null);
+    
+    // Modal states
+    const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+    const [currentUser, setCurrentUser] = useState(null); // For editing or changing password
 
     const fetchUsers = useCallback(async () => {
         try {
@@ -29,97 +47,123 @@ const AdminUsersPage = () => {
         fetchUsers();
     }, [fetchUsers]);
     
-    const handleDelete = async (userId) => {
-        if (window.confirm('Tem certeza que deseja excluir este usuário? Esta ação não pode ser desfeita.')) {
+    const openFormModal = (user = null) => {
+        setCurrentUser(user);
+        setIsFormModalOpen(true);
+    };
+
+    const openPasswordModal = (user) => {
+        setCurrentUser(user);
+        setIsPasswordModalOpen(true);
+    };
+    
+    const closeModal = () => {
+        setIsFormModalOpen(false);
+        setIsPasswordModalOpen(false);
+        setCurrentUser(null);
+    };
+    
+    const handleSoftDelete = async (userId) => {
+        if (window.confirm('Tem certeza que deseja remover este usuário? Ele será desativado e não poderá mais fazer login.')) {
             try {
-                await api.delete(`/users/${userId}`);
-                setUsers(users.filter(u => u._id !== userId));
+                const { data } = await api.delete(`/users/${userId}`);
+                setUsers(users.map(u => u._id === userId ? data.user : u));
             } catch (err) {
-                alert(err.response?.data?.message || 'Falha ao excluir usuário.');
+                alert(err.response?.data?.message || 'Falha ao remover usuário.');
             }
         }
     }
 
-    const handleUpdateUserStatus = async (userId, status) => {
+    const handleStatusChange = async (userId, newStatus) => {
         try {
-            const { data } = await api.put(`/users/${userId}/status`, { status });
+            const { data } = await api.patch(`/users/${userId}/status`, { status: newStatus });
             setUsers(users.map(u => u._id === userId ? data : u));
         } catch (err) {
-            alert(err.response?.data?.message || 'Falha ao atualizar status do usuário.');
+            alert(err.response?.data?.message || 'Falha ao atualizar status.');
         }
     };
 
-    const openEditModal = (user) => {
-        setEditingUser(user);
-        setIsEditModalOpen(true);
-    };
+    const UserFormModal = ({ user, onSave, onClose }) => {
+        const [formData, setFormData] = useState({
+            name: user?.name || '',
+            email: user?.email || '',
+            password: '',
+            role: user?.role || 'user',
+            subscriptionStatus: user?.subscriptionStatus || 'active'
+        });
 
-    const AddUserModal = () => {
-        const [name, setName] = useState('');
-        const [email, setEmail] = useState('');
-        const [password, setPassword] = useState('');
-
+        const handleChange = (e) => {
+            setFormData({ ...formData, [e.target.name]: e.target.value });
+        };
+        
         const handleSubmit = async (e) => {
             e.preventDefault();
             try {
-                const { data } = await api.post('/users', { name, email, password });
-                setUsers([data, ...users]);
-                setIsAddModalOpen(false);
+                let response;
+                if (user) { // Editing
+                    const { name, email, role, subscriptionStatus } = formData;
+                    response = await api.patch(`/users/${user._id}`, { name, email, role, subscriptionStatus });
+                } else { // Creating
+                    response = await api.post('/users', formData);
+                }
+                onSave(response.data);
+                onClose();
             } catch (err) {
-                alert(err.response?.data?.message || 'Falha ao adicionar usuário.');
+                alert(err.response?.data?.message || 'Falha ao salvar usuário.');
             }
         };
 
         return (
-            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setIsAddModalOpen(false)}>
+            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
                 <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-lg" onClick={(e) => e.stopPropagation()}>
-                    <h2 className="text-2xl font-bold text-white mb-4">Adicionar Novo Usuário</h2>
+                    <h2 className="text-2xl font-bold text-white mb-4">{user ? 'Editar Usuário' : 'Adicionar Usuário'}</h2>
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        <Input label="Nome Completo" id="new-user-name" type="text" value={name} onChange={e => setName(e.target.value)} required />
-                        <Input label="Email" id="new-user-email" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
-                        <Input label="Senha" id="new-user-password" type="password" value={password} onChange={e => setPassword(e.target.value)} required />
+                        <Input label="Nome Completo" name="name" type="text" value={formData.name} onChange={handleChange} required />
+                        <Input label="Email" name="email" type="email" value={formData.email} onChange={handleChange} required />
+                        {!user && <Input label="Senha" name="password" type="password" value={formData.password} onChange={handleChange} required />}
+                        <Select label="Role" name="role" value={formData.role} onChange={handleChange}>
+                            <option value="user">User</option>
+                            <option value="admin">Admin</option>
+                        </Select>
+                        <Select label="Status Assinatura" name="subscriptionStatus" value={formData.subscriptionStatus} onChange={handleChange}>
+                            <option value="active">Ativo</option>
+                            <option value="inactive">Inativo</option>
+                            <option value="blocked">Bloqueado</option>
+                        </Select>
                         <div className="flex justify-end space-x-2 pt-4">
-                            <Button type="button" variant="ghost" onClick={() => setIsAddModalOpen(false)}>Cancelar</Button>
-                            <Button type="submit">Adicionar</Button>
+                            <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
+                            <Button type="submit">Salvar</Button>
                         </div>
                     </form>
                 </div>
             </div>
         );
     };
+    
+    const ChangePasswordModal = ({ user, onClose, onSave }) => {
+        const [newPassword, setNewPassword] = useState('');
 
-    const EditUserModal = () => {
-        if (!editingUser) return null;
-        
-        const [name, setName] = useState(editingUser.name);
-        const [password, setPassword] = useState('');
-        
         const handleSubmit = async (e) => {
             e.preventDefault();
             try {
-                const payload = { name };
-                if (password) {
-                    payload.password = password;
-                }
-                const { data } = await api.put(`/users/${editingUser._id}`, payload);
-                setUsers(users.map(u => u._id === editingUser._id ? data : u));
-                setIsEditModalOpen(false);
-                setEditingUser(null);
+                await api.patch(`/users/${user._id}/password`, { newPassword });
+                onSave();
+                onClose();
             } catch (err) {
-                 alert(err.response?.data?.message || 'Falha ao editar usuário.');
+                alert(err.response?.data?.message || 'Falha ao alterar senha.');
             }
-        };
+        }
 
         return (
-            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setIsEditModalOpen(false)}>
+             <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
                 <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-lg" onClick={(e) => e.stopPropagation()}>
-                    <h2 className="text-2xl font-bold text-white mb-4">Editar Usuário</h2>
+                    <h2 className="text-2xl font-bold text-white mb-4">Alterar Senha</h2>
+                    <p className="text-gray-400 mb-4">Alterando senha para: <span className="font-semibold">{user.email}</span></p>
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        <Input label="Nome Completo" id="edit-user-name" type="text" value={name} onChange={e => setName(e.target.value)} required />
-                        <Input label="Nova Senha (opcional)" id="edit-user-password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Deixe em branco para não alterar" />
+                        <Input label="Nova Senha" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required />
                         <div className="flex justify-end space-x-2 pt-4">
-                            <Button type="button" variant="ghost" onClick={() => setIsEditModalOpen(false)}>Cancelar</Button>
-                            <Button type="submit">Salvar</Button>
+                            <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
+                            <Button type="submit">Alterar Senha</Button>
                         </div>
                     </form>
                 </div>
@@ -127,54 +171,80 @@ const AdminUsersPage = () => {
         )
     }
 
+    const handleSave = (savedUser) => {
+        if(users.find(u => u._id === savedUser._id)) {
+            setUsers(users.map(u => u._id === savedUser._id ? savedUser : u));
+        } else {
+            setUsers([savedUser, ...users]);
+        }
+    };
+
     if (loading) return <div className="p-6 text-center">Carregando usuários...</div>;
     if (error) return <div className="p-6 text-center text-red-400">{error}</div>;
 
     return (
         <div className="p-4 sm:p-6 space-y-6">
-            {isAddModalOpen && <AddUserModal />}
-            {isEditModalOpen && <EditUserModal />}
+            {isFormModalOpen && <UserFormModal user={currentUser} onClose={closeModal} onSave={handleSave} />}
+            {isPasswordModalOpen && <ChangePasswordModal user={currentUser} onClose={closeModal} onSave={() => alert('Senha alterada com sucesso!')} />}
+
             <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-bold text-white">Gerenciamento de Usuários</h2>
-                <Button onClick={() => setIsAddModalOpen(true)} className="flex items-center space-x-2">
+                <Button onClick={() => openFormModal()} className="flex items-center space-x-2">
                     <UserPlusIcon className="w-5 h-5" />
                     <span>Adicionar Usuário</span>
                 </Button>
             </div>
             <div className="bg-gray-800 rounded-xl shadow-lg overflow-x-auto">
-                <ul className="divide-y divide-gray-700 min-w-full">
-                    {users.map(user => (
-                        <li key={user._id} className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0 sm:space-x-4">
-                            <div className="flex items-center space-x-4">
-                                <img src={user.avatarUrl} alt={user.name} className="w-12 h-12 rounded-full" />
-                                <div>
-                                    <p className="font-semibold text-white">{user.name}</p>
-                                    <p className="text-sm text-gray-400">{user.email}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center space-x-2 self-end sm:self-center">
-                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${user.subscriptionStatus === 'active' ? 'bg-green-500/20 text-green-300' : 'bg-yellow-500/20 text-yellow-300'}`}>
-                                    {user.subscriptionStatus === 'active' ? 'Ativo' : 'Inativo'}
-                                </span>
-                                {user.subscriptionStatus === 'active' ? (
-                                    <button onClick={() => handleUpdateUserStatus(user._id, 'inactive')} className="p-2 text-gray-400 hover:text-yellow-400" aria-label="Desativar assinatura">
-                                        <LockClosedIcon className="w-5 h-5" />
-                                    </button>
-                                ) : (
-                                    <button onClick={() => handleUpdateUserStatus(user._id, 'active')} className="p-2 text-gray-400 hover:text-green-400" aria-label="Ativar assinatura">
-                                        <LockOpenIcon className="w-5 h-5" />
-                                    </button>
-                                )}
-                                <button onClick={() => openEditModal(user)} className="p-2 text-gray-400 hover:text-white" aria-label="Editar usuário">
-                                    <EditIcon className="w-5 h-5" />
-                                </button>
-                                <button onClick={() => handleDelete(user._id)} className="p-2 text-gray-400 hover:text-pink-500" aria-label="Excluir usuário">
-                                    <TrashIcon className="w-5 h-5" />
-                                </button>
-                            </div>
-                        </li>
-                    ))}
-                </ul>
+                <table className="min-w-full divide-y divide-gray-700">
+                    <thead className="bg-gray-800">
+                        <tr>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Usuário</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Criado em</th>
+                            <th scope="col" className="relative px-6 py-3"><span className="sr-only">Ações</span></th>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-gray-900/50 divide-y divide-gray-700">
+                        {users.map(user => (
+                            <tr key={user._id}>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                    <div className="flex items-center">
+                                        <div className="flex-shrink-0 h-10 w-10">
+                                            <img className="h-10 w-10 rounded-full" src={user.avatarUrl} alt={user.name} />
+                                        </div>
+                                        <div className="ml-4">
+                                            <div className="text-sm font-medium text-white">{user.name}</div>
+                                            <div className="text-sm text-gray-400">{user.email}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                    <StatusBadge status={user.subscriptionStatus} />
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
+                                    {new Date(user.createdAt).toLocaleDateString('pt-BR')}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <div className="flex items-center justify-end space-x-2">
+                                         <Select 
+                                            value={user.subscriptionStatus} 
+                                            onChange={(e) => handleStatusChange(user._id, e.target.value)}
+                                            className="!py-1 !text-xs"
+                                            disabled={user.subscriptionStatus === 'deleted'}
+                                        >
+                                            <option value="active">Ativo</option>
+                                            <option value="inactive">Inativo</option>
+                                            <option value="blocked">Bloqueado</option>
+                                        </Select>
+                                        <button onClick={() => openFormModal(user)} className="p-2 text-gray-400 hover:text-white" aria-label="Editar"><EditIcon className="w-5 h-5" /></button>
+                                        <button onClick={() => openPasswordModal(user)} className="p-2 text-gray-400 hover:text-white" aria-label="Alterar Senha"><LockClosedIcon className="w-5 h-5" /></button>
+                                        <button onClick={() => handleSoftDelete(user._id)} className="p-2 text-gray-400 hover:text-pink-500" aria-label="Remover"><TrashIcon className="w-5 h-5" /></button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
             </div>
         </div>
     );

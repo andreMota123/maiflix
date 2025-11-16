@@ -14,7 +14,7 @@ const userSchema = new mongoose.Schema({
     lowercase: true,
     trim: true,
   },
-  password: {
+  passwordHash: {
     type: String,
     required: true,
     select: false, // Do not return password in queries by default
@@ -26,8 +26,8 @@ const userSchema = new mongoose.Schema({
   },
   subscriptionStatus: {
     type: String,
-    enum: ['active', 'inactive', 'expired'],
-    default: 'inactive',
+    enum: ['active', 'inactive', 'blocked', 'deleted'],
+    default: 'active',
   },
   avatarUrl: {
     type: String,
@@ -41,18 +41,18 @@ const userSchema = new mongoose.Schema({
 
 // Mongoose hook to hash password BEFORE saving
 userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) {
+  if (!this.isModified('passwordHash')) {
     return next();
   }
   
   const salt = await bcrypt.genSalt(12);
-  this.password = await bcrypt.hash(this.password, salt);
+  this.passwordHash = await bcrypt.hash(this.passwordHash, salt);
   next();
 });
 
 // Method to compare candidate password with the hashed password in the DB
 userSchema.methods.comparePassword = function(candidatePassword) {
-  return bcrypt.compare(candidatePassword, this.password);
+  return bcrypt.compare(candidatePassword, this.passwordHash);
 };
 
 const User = mongoose.model('User', userSchema);

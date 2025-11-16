@@ -23,7 +23,7 @@ const activateSubscription = async (customer) => {
       const newUser = new User({
         email: email,
         name: fullName,
-        password: plainTextPassword, // Password will be hashed by pre-save hook.
+        passwordHash: plainTextPassword, // The pre-save hook will hash this value.
         subscriptionStatus: 'active',
         role: 'user',
       });

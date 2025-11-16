@@ -13,77 +13,98 @@ exports.getAllUsers = async (req, res, next) => {
   }
 };
 
-// @desc    Create a new user
+// @desc    Create a new user by admin
 // @route   POST /api/users
 // @access  Private/Admin
 exports.createUser = async (req, res, next) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, role = 'user', subscriptionStatus = 'active' } = req.body;
 
-  // Reworked validation for more clarity and robustness.
-  if (!name || typeof name !== 'string' || name.trim() === '') {
-    return res.status(400).json({ message: 'O nome é obrigatório e não pode estar vazio.' });
+  if (!name || !email || !password) {
+    return res.status(400).json({ message: 'Nome, email e senha são obrigatórios.' });
   }
-  if (!email || typeof email !== 'string' || email.trim() === '') {
-    return res.status(400).json({ message: 'O email é obrigatório e não pode estar vazio.' });
-  }
-  if (!password || typeof password !== 'string' || password.length < 6) {
-    return res.status(400).json({ message: 'A senha é obrigatória e deve ter pelo menos 6 caracteres.' });
+  if (password.length < 6) {
+    return res.status(400).json({ message: 'A senha deve ter pelo menos 6 caracteres.' });
   }
 
   try {
-    // Remove the pre-emptive findOne check and rely on the database's unique index.
-    // This is more robust and avoids potential race conditions or query mismatches.
-    const user = await User.create({
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
-      password: password,
-      subscriptionStatus: 'active', // Assume active when created by admin
-    });
-
-    res.status(201).json(user);
-  } catch (error) {
-    // Specific handling for duplicate key errors (code 11000) from MongoDB's unique index
-    if (error.code === 11000) {
-      logger.warn('Falha ao criar usuário: Email duplicado.', { email: email, error: error.message });
-      return res.status(409).json({ message: 'Este email já está cadastrado no sistema.' });
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    if (existingUser) {
+      return res.status(409).json({ message: 'Este email já está cadastrado.' });
     }
+
+    const user = await User.create({
+      name,
+      email,
+      passwordHash: password, // The pre-save hook will hash it
+      role,
+      subscriptionStatus,
+    });
     
-    // Pass other errors to the generic handler
+    const userResponse = user.toObject();
+    delete userResponse.passwordHash;
+
+    res.status(201).json(userResponse);
+  } catch (error) {
     next(error);
   }
 };
 
-// @desc    Update a user
-// @route   PUT /api/users/:id
+// @desc    Update a user's details (name, email, role, status)
+// @route   PATCH /api/users/:id
 // @access  Private/Admin
 exports.updateUser = async (req, res, next) => {
-  const { name, password } = req.body;
-  try {
-    const user = await User.findById(req.params.id);
-    if (!user) {
-      return res.status(404).json({ message: 'Usuário não encontrado.' });
-    }
-
-    if (name && typeof name === 'string' && name.trim() !== '') {
-        user.name = name.trim();
-    }
-    
-    if (password) {
-        if (typeof password === 'string' && password.length >= 6) {
-            user.password = password; // The pre-save hook will hash it
-        } else {
-            return res.status(400).json({ message: 'A nova senha deve ter pelo menos 6 caracteres.' });
+    const { name, email, role, subscriptionStatus } = req.body;
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) {
+            return res.status(404).json({ message: 'Usuário não encontrado.' });
         }
-    }
 
-    const updatedUser = await user.save();
-    res.status(200).json(updatedUser);
-  } catch (error) {
-    next(error);
-  }
+        if (email && email.toLowerCase() !== user.email) {
+            const existingUser = await User.findOne({ email: email.toLowerCase() });
+            if (existingUser) {
+                return res.status(409).json({ message: 'Este email já está em uso por outro usuário.' });
+            }
+            user.email = email;
+        }
+
+        if (name) user.name = name;
+        if (role) user.role = role;
+        if (subscriptionStatus) user.subscriptionStatus = subscriptionStatus;
+        
+        const updatedUser = await user.save();
+
+        const userResponse = updatedUser.toObject();
+        delete userResponse.passwordHash;
+        
+        res.status(200).json(userResponse);
+    } catch (error) {
+        next(error);
+    }
 };
 
-// @desc    Delete a user
+// @desc    Change a user's password
+// @route   PATCH /api/users/:id/password
+// @access  Private/Admin
+exports.changeUserPassword = async (req, res, next) => {
+    const { newPassword } = req.body;
+    if (!newPassword || newPassword.length < 6) {
+        return res.status(400).json({ message: 'A nova senha é obrigatória e deve ter pelo menos 6 caracteres.' });
+    }
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) {
+            return res.status(404).json({ message: 'Usuário não encontrado.' });
+        }
+        user.passwordHash = newPassword; // The pre-save hook will hash it
+        await user.save();
+        res.status(200).json({ message: 'Senha atualizada com sucesso.' });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Soft delete a user
 // @route   DELETE /api/users/:id
 // @access  Private/Admin
 exports.deleteUser = async (req, res, next) => {
@@ -95,8 +116,14 @@ exports.deleteUser = async (req, res, next) => {
     if (user.role === 'admin') {
       return res.status(400).json({ message: 'Não é possível excluir um administrador.' });
     }
-    await User.deleteOne({ _id: req.params.id });
-    res.status(200).json({ message: 'Usuário removido com sucesso.' });
+    
+    user.subscriptionStatus = 'deleted';
+    await user.save();
+    
+    const userResponse = user.toObject();
+    delete userResponse.passwordHash;
+
+    res.status(200).json({ message: 'Usuário removido com sucesso.', user: userResponse });
   } catch (error) {
     next(error);
   }
@@ -104,13 +131,13 @@ exports.deleteUser = async (req, res, next) => {
 
 
 // @desc    Update user subscription status
-// @route   PUT /api/users/:id/status
+// @route   PATCH /api/users/:id/status
 // @access  Private/Admin
 exports.updateUserStatus = async (req, res, next) => {
-  const { status } = req.body; // Expects 'active' or 'inactive'
+  const { status } = req.body;
 
-  if (!['active', 'inactive', 'expired'].includes(status)) {
-    return res.status(400).json({ message: 'Status inválido.' });
+  if (!['active', 'inactive', 'blocked'].includes(status)) {
+    return res.status(400).json({ message: 'Status inválido. Use "active", "inactive" ou "blocked".' });
   }
 
   try {
@@ -120,8 +147,13 @@ exports.updateUserStatus = async (req, res, next) => {
     }
     user.subscriptionStatus = status;
     await user.save();
-    res.status(200).json(user);
-  } catch (error) {
+    
+    const userResponse = user.toObject();
+    delete userResponse.passwordHash;
+
+    res.status(200).json(userResponse);
+  } catch (error)
+{
     next(error);
   }
 };

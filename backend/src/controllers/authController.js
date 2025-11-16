@@ -9,7 +9,7 @@ exports.login = async (req, res, next) => {
   }
 
   try {
-    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
+    const user = await User.findOne({ email: email.toLowerCase() }).select('+passwordHash');
 
     if (!user) {
       return res.status(401).json({ message: 'Credenciais inválidas.' });
@@ -22,18 +22,20 @@ exports.login = async (req, res, next) => {
     }
 
     if (user.role !== 'admin' && user.subscriptionStatus !== 'active') {
-      return res.status(403).json({ message: 'Acesso negado. Sua assinatura não está ativa.' });
+      return res.status(403).json({ message: 'Usuário inativo ou assinatura bloqueada.' });
     }
 
     const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
       expiresIn: '7d',
     });
     
-    user.password = undefined;
+    // Explicitly exclude password hash from the returned user object
+    const userResponse = user.toObject();
+    delete userResponse.passwordHash;
 
     res.status(200).json({
       token,
-      user,
+      user: userResponse,
     });
   } catch (error) {
     next(error);

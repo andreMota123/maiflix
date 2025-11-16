@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   _id: string; // From MongoDB
@@ -6,7 +5,8 @@ export interface User {
   email: string;
   avatarUrl: string;
   role: 'user' | 'admin';
-  subscriptionStatus: 'active' | 'inactive' | 'expired';
+  subscriptionStatus: 'active' | 'inactive' | 'blocked' | 'deleted';
+  createdAt: string;
 }
 
 export interface Comment {
