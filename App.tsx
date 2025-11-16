@@ -1,9 +1,10 @@
 
 
-
 import React, { useState, FC, useRef, useEffect } from 'react';
 import { Page, User, Post, Product, Class, AdminPost, Comment, Notification, Banner } from './types';
 import { HomeIcon, UsersIcon, InfoIcon, FileIcon, UserCircleIcon, HeartIcon, CommentIcon, TrashIcon, BellIcon, WhatsappIcon, PhotoIcon, VideoIcon, LogoutIcon, EditIcon, UserPlusIcon, LockClosedIcon, LockOpenIcon, UserGroupIcon, BoxIcon, ChevronLeftIcon, ChevronRightIcon, Cog6ToothIcon, BookmarkIcon, EyeIcon, EyeSlashIcon } from './components/Icons';
+import { GoogleGenAI, Type } from "@google/genai";
+
 
 // --- ERROR BOUNDARY (para produção) ---
 
@@ -16,8 +17,11 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // FIX: Replaced the constructor with class property syntax for state initialization. This is a more modern approach that resolves TypeScript errors where 'this.state' and 'this.props' were not being correctly recognized.
-  state: ErrorBoundaryState = { hasError: false };
+  // FIX: Reverted to using a constructor for state initialization to resolve a TypeScript error where 'this.props' was not being recognized on the component instance.
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
 
   static getDerivedStateFromError(_error: Error): ErrorBoundaryState {
     // Atualiza o estado para que a próxima renderização mostre a UI de fallback.
@@ -177,7 +181,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const Button: FC<ButtonProps> = ({ children, className, variant = 'primary', ...props }) => {
-  const baseClasses = 'px-4 py-2 rounded-lg font-semibold transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-brand-surface';
+  const baseClasses = 'px-4 py-2 rounded-lg font-semibold transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-brand-surface disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100';
   const variantClasses = {
     primary: 'bg-brand-primary text-white hover:bg-red-500',
     secondary: 'bg-brand-secondary text-white hover:bg-blue-800',
@@ -847,71 +851,82 @@ const AdminFeedPage: FC<{
 
 const AdminUsersPage: FC<{
     users: User[];
-    onAddUser: (user: Omit<User, 'id' | 'avatarUrl' | 'role' | 'status'>) => void;
-    onUpdateUser: (userId: string, updates: { name: string }) => void;
-    onUpdateUserStatus: (userId: string, status: 'active' | 'blocked') => void;
-    onDeleteUser: (userId: string) => void;
+    onAddUser: (user: Omit<User, 'id' | 'avatarUrl' | 'role' | 'status'>) => Promise<void>;
+    onUpdateUser: (userId: string, updates: { name: string }) => Promise<void>;
+    onUpdateUserStatus: (userId: string, status: 'active' | 'blocked') => Promise<void>;
+    onDeleteUser: (userId: string) => Promise<void>;
 }> = ({ users, onAddUser, onUpdateUser, onUpdateUserStatus, onDeleteUser }) => {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    const [name, setName] = useState('');
-    const [email, setEmail] = useState('');
-
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
-    const [editName, setEditName] = useState('');
-    const [editPassword, setEditPassword] = useState('');
-
-    const handleAddUserSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (name.trim() && email.trim()) {
-            onAddUser({ name, email });
-            setIsAddModalOpen(false);
-            setName('');
-            setEmail('');
-        }
-    };
     
-    const handleDelete = (userId: string) => {
+    const handleDelete = async (userId: string) => {
         if (window.confirm('Tem certeza que deseja excluir este usuário? Esta ação não pode ser desfeita.')) {
-            onDeleteUser(userId);
+            await onDeleteUser(userId);
         }
     }
 
     const openEditModal = (user: User) => {
         setEditingUser(user);
-        setEditName(user.name);
-        setEditPassword(''); // Always clear password for security
         setIsEditModalOpen(true);
     };
 
-    const handleUpdateUserSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (editingUser && editName.trim()) {
-            onUpdateUser(editingUser.id, { name: editName });
-            // In a real app, you would handle the password change here.
-            setIsEditModalOpen(false);
-            setEditingUser(null);
-        }
-    };
+    const AddUserModal = () => {
+        const [name, setName] = useState('');
+        const [email, setEmail] = useState('');
+        const [submitting, setSubmitting] = useState(false);
 
-    const AddUserModal = () => (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setIsAddModalOpen(false)}>
-            <div className="bg-brand-surface rounded-xl p-6 w-full max-w-md shadow-lg" onClick={(e) => e.stopPropagation()}>
-                <h2 className="text-2xl font-bold text-white mb-4">Adicionar Novo Usuário</h2>
-                <form onSubmit={handleAddUserSubmit} className="space-y-4">
-                    <Input label="Nome Completo" id="new-user-name" type="text" value={name} onChange={e => setName(e.target.value)} required />
-                    <Input label="Email" id="new-user-email" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
-                    <div className="flex justify-end space-x-2 pt-4">
-                        <Button type="button" variant="ghost" onClick={() => setIsAddModalOpen(false)}>Cancelar</Button>
-                        <Button type="submit">Adicionar</Button>
-                    </div>
-                </form>
+        const handleAddUserSubmit = async (e: React.FormEvent) => {
+            e.preventDefault();
+            if (name.trim() && email.trim()) {
+                setSubmitting(true);
+                try {
+                    await onAddUser({ name, email });
+                    setIsAddModalOpen(false);
+                    setName('');
+                    setEmail('');
+                } finally {
+                    setSubmitting(false);
+                }
+            }
+        };
+
+        return (
+            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setIsAddModalOpen(false)}>
+                <div className="bg-brand-surface rounded-xl p-6 w-full max-w-md shadow-lg" onClick={(e) => e.stopPropagation()}>
+                    <h2 className="text-2xl font-bold text-white mb-4">Adicionar Novo Usuário</h2>
+                    <form onSubmit={handleAddUserSubmit} className="space-y-4">
+                        <Input label="Nome Completo" id="new-user-name" type="text" value={name} onChange={e => setName(e.target.value)} required />
+                        <Input label="Email" id="new-user-email" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
+                        <div className="flex justify-end space-x-2 pt-4">
+                            <Button type="button" variant="ghost" onClick={() => setIsAddModalOpen(false)} disabled={submitting}>Cancelar</Button>
+                            <Button type="submit" disabled={submitting}>{submitting ? 'Adicionando...' : 'Adicionar'}</Button>
+                        </div>
+                    </form>
+                </div>
             </div>
-        </div>
-    );
+        );
+    };
 
     const EditUserModal = () => {
         if (!editingUser) return null;
+        const [editName, setEditName] = useState(editingUser.name);
+        const [submitting, setSubmitting] = useState(false);
+
+        const handleUpdateUserSubmit = async (e: React.FormEvent) => {
+            e.preventDefault();
+            if (editingUser && editName.trim()) {
+                setSubmitting(true);
+                try {
+                    await onUpdateUser(editingUser.id, { name: editName });
+                    setIsEditModalOpen(false);
+                    setEditingUser(null);
+                } finally {
+                    setSubmitting(false);
+                }
+            }
+        };
+
         return (
             <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setIsEditModalOpen(false)}>
                 <div className="bg-brand-surface rounded-xl p-6 w-full max-w-md shadow-lg" onClick={(e) => e.stopPropagation()}>
@@ -925,14 +940,12 @@ const AdminUsersPage: FC<{
                         <Input 
                             label="Nova Senha (opcional)" 
                             id="edit-user-password" 
-                            type="password" 
-                            value={editPassword} 
-                            onChange={e => setEditPassword(e.target.value)} 
+                            type="password"
                             placeholder="Deixe em branco para não alterar" 
                         />
                         <div className="flex justify-end space-x-2 pt-4">
-                            <Button type="button" variant="ghost" onClick={() => setIsEditModalOpen(false)}>Cancelar</Button>
-                            <Button type="submit">Salvar Alterações</Button>
+                            <Button type="button" variant="ghost" onClick={() => setIsEditModalOpen(false)} disabled={submitting}>Cancelar</Button>
+                            <Button type="submit" disabled={submitting}>{submitting ? 'Salvando...' : 'Salvar Alterações'}</Button>
                         </div>
                     </form>
                 </div>
@@ -1534,12 +1547,55 @@ const App: FC = () => {
                 }
 // FIX: Handle unknown error type safely and ensure the initializer function returns a value on error.
             } catch (e) {
-                // FIX: The 'e' in a catch block is of type 'unknown'. Explicitly converting it to a string for logging satisfies strict type checking.
-                console.error("Could not parse colors from local storage", String(e));
+                // FIX: The 'e' in a catch block is of type 'unknown'. Pass it directly to console.error, which can handle any type, to avoid potential type errors from explicit conversion.
+                console.error("Could not parse colors from local storage", e);
             }
         }
         return DEFAULT_COLORS;
     });
+
+    const ai = new GoogleGenAI({apiKey: process.env.API_KEY!});
+
+    const updateUsersWithGemini = async (prompt: string, currentUsers: User[]): Promise<User[] | null> => {
+        try {
+            const fullPrompt = `${prompt}\n\nHere is the current list of users in JSON format. Please return the new, complete list of users in the same format.\n\n${JSON.stringify(currentUsers, null, 2)}`;
+            
+            const response = await ai.models.generateContent({
+              model: 'gemini-2.5-flash',
+              contents: fullPrompt,
+              config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      id: { type: Type.STRING },
+                      name: { type: Type.STRING },
+                      email: { type: Type.STRING },
+                      avatarUrl: { type: Type.STRING },
+                      role: { type: Type.STRING },
+                      status: { type: Type.STRING },
+                    }
+                  }
+                }
+              }
+            });
+        
+            const jsonText = response.text.trim();
+            const updatedUsers = JSON.parse(jsonText);
+            // Basic validation
+            if (Array.isArray(updatedUsers)) {
+                return updatedUsers;
+            }
+            throw new Error("AI response was not a valid user array.");
+
+        } catch (error) {
+            console.error("Error updating users with Gemini:", error);
+            alert("Ocorreu um erro ao se comunicar com a IA. Por favor, tente novamente.");
+            return null;
+        }
+    };
 
     useEffect(() => {
         Object.entries(colors).forEach(([key, value]) => {
@@ -1591,32 +1647,55 @@ const App: FC = () => {
     };
 
     // Admin user handlers
-    const handleAddUser = (userData: Omit<User, 'id' | 'avatarUrl' | 'role' | 'status'>) => {
-        const newUser: User = {
-            ...userData,
-            id: `u${Date.now()}`,
-            avatarUrl: `https://picsum.photos/seed/u${Date.now()}/100/100`,
-            role: 'user',
-            status: 'active',
-        };
-        setUsers([...users, newUser]);
-    };
-    const handleUpdateUser = (userId: string, updates: { name?: string, avatarUrl?: string }) => {
-        const updatedUsers = users.map(u => u.id === userId ? { ...u, ...updates } : u);
-        setUsers(updatedUsers);
+    const handleAddUser = async (userData: Omit<User, 'id' | 'avatarUrl' | 'role' | 'status'>) => {
+        const prompt = `You are a user database API for the Maiflix app. A new user is being added with this data:
+- Name: ${userData.name}
+- Email: ${userData.email}
 
-        if (currentUser && currentUser.id === userId) {
-            setCurrentUser(prevUser => {
-                if (!prevUser) return null;
-                return { ...prevUser, ...updates };
-            });
+Please add this user to the list. You must:
+1. Generate a new unique ID (e.g., 'u' followed by the current timestamp).
+2. Generate a random avatar URL from 'https://picsum.photos/seed/UNIQUE_SEED/100/100'.
+3. Set their 'role' to 'user'.
+4. Set their 'status' to 'active'.
+5. Return the COMPLETE, updated list of all users as a valid JSON array.`;
+        
+        const updatedUsers = await updateUsersWithGemini(prompt, users);
+        if (updatedUsers) {
+            setUsers(updatedUsers);
         }
     };
-    const handleUpdateUserStatus = (userId: string, status: 'active' | 'blocked') => {
-        setUsers(users.map(u => u.id === userId ? { ...u, status } : u));
+    const handleUpdateUser = async (userId: string, updates: { name?: string, avatarUrl?: string }) => {
+        const prompt = `You are a user database API for the Maiflix app. Update the user with id '${userId}' with the following data: ${JSON.stringify(updates)}.
+Do not change any other fields for this user. Return the COMPLETE, updated list of all users as a valid JSON array.`;
+
+        const updatedUsers = await updateUsersWithGemini(prompt, users);
+        if (updatedUsers) {
+            setUsers(updatedUsers);
+            if (currentUser && currentUser.id === userId) {
+                const updatedCurrentUser = updatedUsers.find(u => u.id === userId);
+                if (updatedCurrentUser) {
+                    setCurrentUser(updatedCurrentUser);
+                }
+            }
+        }
     };
-    const handleDeleteUser = (userId: string) => {
-        setUsers(users.filter(u => u.id !== userId));
+    const handleUpdateUserStatus = async (userId: string, status: 'active' | 'blocked') => {
+        const prompt = `You are a user database API for the Maiflix app. Update the status for the user with id '${userId}' to '${status}'.
+Return the COMPLETE, updated list of all users as a valid JSON array.`;
+        
+        const updatedUsers = await updateUsersWithGemini(prompt, users);
+        if (updatedUsers) {
+            setUsers(updatedUsers);
+        }
+    };
+    const handleDeleteUser = async (userId: string) => {
+         const prompt = `You are a user database API for the Maiflix app. Delete the user with id '${userId}'.
+Return the COMPLETE, updated list of all users without the deleted user as a valid JSON array.`;
+
+        const updatedUsers = await updateUsersWithGemini(prompt, users);
+        if (updatedUsers) {
+            setUsers(updatedUsers);
+        }
     };
     
     // Admin products handlers
@@ -1680,7 +1759,7 @@ const App: FC = () => {
             case Page.Comunidade:
                 return <CommunityPage currentUser={currentUser} onAddNotification={handleAddNotification} />;
             case Page.Users:
-                return currentUser.role === 'admin' ? <AdminUsersPage users={users.filter(u => u.role === 'user')} onAddUser={handleAddUser} onUpdateUser={(userId, updates) => handleUpdateUser(userId, updates)} onUpdateUserStatus={handleUpdateUserStatus} onDeleteUser={handleDeleteUser} /> : null;
+                return currentUser.role === 'admin' ? <AdminUsersPage users={users.filter(u => u.role === 'user')} onAddUser={handleAddUser} onUpdateUser={handleUpdateUser as any} onUpdateUserStatus={handleUpdateUserStatus} onDeleteUser={handleDeleteUser} /> : null;
             case Page.Products:
                 return currentUser.role === 'admin' ? <AdminProductsPage products={products} onAddProduct={handleAddProduct} onUpdateProduct={handleUpdateProduct} onDeleteProduct={handleDeleteProduct} /> : null;
             case Page.Banners:
