@@ -6,8 +6,10 @@ const logger = require('../utils/logger');
 // @access  Private/Admin
 exports.getAllUsers = async (req, res, next) => {
   try {
-    // Return all users, including admins, but sort to show users first.
-    const users = await User.find().sort({ role: 1, createdAt: -1 });
+    // Retorna todos os usuários que não foram "removidos" (soft-deleted),
+    // garantindo que a lista esteja sempre limpa.
+    const users = await User.find({ subscriptionStatus: { $ne: 'deleted' } })
+      .sort({ role: 1, createdAt: -1 });
     res.status(200).json(users);
   } catch (error) {
     next(error);
@@ -28,21 +30,29 @@ exports.createUser = async (req, res, next) => {
   }
 
   try {
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    const emailLower = email.toLowerCase();
+    const existingUser = await User.findOne({ email: emailLower });
     if (existingUser) {
       return res.status(409).json({ message: 'Este email já está cadastrado.' });
     }
 
+    // FIX: Refatorado para uma criação mais explícita e robusta.
+    // 1. Cria a instância do usuário sem a senha.
     const user = new User({
       name,
-      email,
-      password, // Use the virtual setter
+      email: emailLower,
       role,
       subscriptionStatus,
     });
-    await user.save();
+
+    // 2. Atribui a senha separadamente para garantir que o setter virtual e o
+    //    hook de pré-salvamento funcionem de forma confiável em todos os ambientes.
+    user.password = password;
+
+    // 3. Salva o novo usuário no banco de dados.
+    const savedUser = await user.save();
     
-    const userResponse = user.toObject();
+    const userResponse = savedUser.toObject();
     delete userResponse.passwordHash;
 
     res.status(201).json(userResponse);
@@ -50,6 +60,7 @@ exports.createUser = async (req, res, next) => {
     next(error);
   }
 };
+
 
 // @desc    Update a user's details (name, email, role, status)
 // @route   PATCH /api/users/:id
