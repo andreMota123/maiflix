@@ -30,26 +30,16 @@ exports.createUser = async (req, res, next) => {
   }
 
   try {
-    const emailLower = email.toLowerCase();
-    const existingUser = await User.findOne({ email: emailLower });
-    if (existingUser) {
-      return res.status(409).json({ message: 'Este email já está cadastrado.' });
-    }
-
-    // FIX: Refatorado para uma criação mais explícita e robusta.
-    // 1. Cria a instância do usuário sem a senha.
     const user = new User({
       name,
-      email: emailLower,
+      email, // O modelo irá aparar e converter para minúsculas
       role,
       subscriptionStatus,
     });
 
-    // 2. Atribui a senha separadamente para garantir que o setter virtual e o
-    //    hook de pré-salvamento funcionem de forma confiável em todos os ambientes.
+    // Atribui a senha para acionar o hook de criptografia
     user.password = password;
 
-    // 3. Salva o novo usuário no banco de dados.
     const savedUser = await user.save();
     
     const userResponse = savedUser.toObject();
@@ -57,6 +47,15 @@ exports.createUser = async (req, res, next) => {
 
     res.status(201).json(userResponse);
   } catch (error) {
+    // Tratamento de erro aprimorado
+    if (error.name === 'ValidationError') {
+        const messages = Object.values(error.errors).map(val => val.message);
+        return res.status(400).json({ message: messages.join(' ') });
+    }
+    if (error.code === 11000) {
+        return res.status(409).json({ message: 'Este email já está cadastrado.' });
+    }
+    // Passa outros erros para o manipulador genérico
     next(error);
   }
 };
