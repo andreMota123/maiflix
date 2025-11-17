@@ -33,13 +33,14 @@ exports.createUser = async (req, res, next) => {
       return res.status(409).json({ message: 'Este email já está cadastrado.' });
     }
 
-    const user = await User.create({
+    const user = new User({
       name,
       email,
       password, // Use the virtual setter
       role,
       subscriptionStatus,
     });
+    await user.save();
     
     const userResponse = user.toObject();
     delete userResponse.passwordHash;

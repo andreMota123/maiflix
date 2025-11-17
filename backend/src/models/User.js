@@ -53,21 +53,18 @@ userSchema.virtual('password').set(function(password) {
   }
 });
 
-// Mongoose hook to hash password BEFORE saving
-userSchema.pre('save', async function(next) {
+// Mongoose hook to hash password BEFORE saving.
+// This uses modern async/await syntax. Mongoose's async middleware automatically
+// handles promise rejections, so we don't need a try/catch block to call next(error).
+userSchema.pre('save', async function() {
   // Only hash the password if it has been modified (or is new)
   if (!this.isModified('passwordHash')) {
-    return next();
+    return;
   }
   
-  try {
-    const salt = await bcrypt.genSalt(12);
-    // this.passwordHash currently holds the plain text password from the virtual setter
-    this.passwordHash = await bcrypt.hash(this.passwordHash, salt);
-    next();
-  } catch(error) {
-    return next(error);
-  }
+  const salt = await bcrypt.genSalt(12);
+  // 'this.passwordHash' currently holds the plain text password from the virtual setter
+  this.passwordHash = await bcrypt.hash(this.passwordHash, salt);
 });
 
 // Method to compare candidate password with the hashed password in the DB
