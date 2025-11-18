@@ -80,6 +80,16 @@ exports.createUser = async (req, res, next) => {
         const messages = Object.values(error.errors).map(val => val.message);
         return res.status(400).json({ message: messages.join(' ') });
     }
+    // Specific error handling for database index issue
+    if (error.code === 11000) {
+      if (error.keyValue && error.keyValue['e-mail'] === null) {
+          const detailedMessage = 'Falha crítica: Índice incorreto no banco de dados ("e-mail" com hífen) impede a criação de usuários. É necessário remover este índice no MongoDB Atlas para corrigir o problema.';
+          logger.error('Erro de índice de banco de dados detectado: ' + detailedMessage, { error });
+          return res.status(409).json({ message: detailedMessage });
+      }
+      logger.warn('Erro de chave duplicada ao criar usuário', { keyValue: error.keyValue });
+      return res.status(409).json({ message: `O email '${email}' já está cadastrado.` });
+    }
     // Pass other errors to the generic error handler
     next(error);
   }

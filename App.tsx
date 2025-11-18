@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState, FC, useRef, useEffect } from 'react';
 import { Page, User, Post, Product, Class, AdminPost, Comment, Notification, Banner } from './types';
 import { HomeIcon, UsersIcon, InfoIcon, FileIcon, UserCircleIcon, HeartIcon, CommentIcon, TrashIcon, BellIcon, WhatsappIcon, PhotoIcon, VideoIcon, LogoutIcon, EditIcon, UserPlusIcon, LockClosedIcon, LockOpenIcon, UserGroupIcon, BoxIcon, ChevronLeftIcon, ChevronRightIcon, Cog6ToothIcon, BookmarkIcon, EyeIcon, EyeSlashIcon } from './components/Icons';
@@ -19,8 +16,7 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // FIX: Replaced constructor with modern class property syntax for state initialization, which is more concise and robust against potential 'this' context issues.
-  // FIX: Reverting to a constructor-based state initialization. The class property syntax, while modern, may not be correctly configured in this project's environment, causing issues with `this.props`.
+  // Fix: Added a constructor to properly initialize state and ensure 'this.props' is available.
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false };
@@ -1510,6 +1506,7 @@ const ProfilePage: FC<{
                                     <div className="p-4 flex flex-col flex-grow">
                                         <h3 className="text-lg font-bold text-white flex-grow mb-2">{cls.title}</h3>
                                         <p className="text-sm text-brand-text-light mb-4 line-clamp-2">{cls.description}</p>
+
                                         <Button onClick={() => alert('Indo para a aula...')} className="mt-auto w-full">Assistir Aula</Button>
                                     </div>
                                 </div>
@@ -1549,9 +1546,8 @@ const App: FC = () => {
                     }
                 }
             } catch (e) {
-                // FIX: The 'e' in a catch block is of type 'unknown'. The linter expects a string argument here, so we concatenate the error into the message.
-                // FIX: Pass the error object directly to console.error for better inspection, avoiding string coercion issues with 'unknown' type.
-                console.error('Could not parse colors from local storage:', e);
+                // Fix: The 'e' in a catch block is of type 'unknown'. Explicitly cast to a string to satisfy the linter.
+                console.error('Could not parse colors from local storage:', String(e));
             }
         }
         return DEFAULT_COLORS;

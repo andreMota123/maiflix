@@ -10,6 +10,7 @@ const path = require('path');
 const logger = require('./src/utils/logger');
 const connectDB = require('./src/config/db');
 const setupAdmin = require('./src/utils/setupAdmin');
+const runDbMigrations = require('./src/utils/runDbMigrations');
 
 // --- Import Routes ---
 const authRoutes = require('./src/routes/authRoutes');
@@ -69,9 +70,11 @@ const startServer = async () => {
   try {
     // 1. Connect to the database
     await connectDB();
-    // 2. Setup the admin user automatically
+    // 2. Run database integrity checks and migrations (e.g., fix wrong indexes)
+    await runDbMigrations();
+    // 3. Setup the admin user automatically
     await setupAdmin();
-    // 3. Start listening for requests
+    // 4. Start listening for requests
     app.listen(PORT, () => {
       logger.info(`Servidor rodando na porta ${PORT} em modo ${process.env.NODE_ENV || 'development'}`);
     });
