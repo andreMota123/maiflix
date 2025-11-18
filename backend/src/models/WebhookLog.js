@@ -7,6 +7,11 @@ const webhookLogSchema = new mongoose.Schema({
     enum: ['Kiwify'],
     default: 'Kiwify',
   },
+  customerEmail: {
+    type: String,
+    trim: true,
+    index: true,
+  },
   event: {
     type: String,
     required: true,

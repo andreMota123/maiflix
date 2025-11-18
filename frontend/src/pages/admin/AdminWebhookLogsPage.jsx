@@ -64,9 +64,14 @@ const AdminWebhookLogsPage = () => {
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center space-x-3">
                                     <StatusBadge status={log.status} />
-                                    <span className="font-semibold text-white truncate">{log.event}</span>
+                                    <div>
+                                        <span className="font-semibold text-white truncate">{log.event}</span>
+                                        {log.customerEmail && (
+                                            <span className="ml-2 text-sm text-gray-400 truncate">{log.customerEmail}</span>
+                                        )}
+                                    </div>
                                 </div>
-                                <p className="text-sm text-gray-300 mt-1 truncate">{log.message}</p>
+                                <p className="text-sm text-gray-300 mt-1 truncate pl-1">{log.message}</p>
                             </div>
                             <div className="flex items-center space-x-4 self-end sm:self-center flex-shrink-0">
                                 <span className="text-xs text-gray-400">{new Date(log.createdAt).toLocaleString('pt-BR')}</span>

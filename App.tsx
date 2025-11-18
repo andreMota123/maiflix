@@ -17,8 +17,11 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Fix: Replaced constructor with a state class property for more concise initialization and to resolve type errors.
-  state: ErrorBoundaryState = { hasError: false };
+  // Fix: Replaced state class property with a standard constructor to ensure `this.props` is correctly typed and accessible.
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
 
   static getDerivedStateFromError(_error: Error): ErrorBoundaryState {
     // Atualiza o estado para que a próxima renderização mostre a UI de fallback.
@@ -1544,12 +1547,8 @@ const App: FC = () => {
                     }
                 }
             } catch (e) {
-                // Fix: The 'e' in a catch block is of type 'unknown'. Safely handled it by checking if it's an Error instance before converting to a string.
-                if (e instanceof Error) {
-                    console.error('Could not parse colors from local storage:', e.message);
-                } else {
-                    console.error('Could not parse colors from local storage:', String(e));
-                }
+                // Fix: Safely handle 'e' of type 'unknown' by converting it to a string for logging.
+                console.error('Could not parse colors from local storage:', String(e));
             }
         }
         return DEFAULT_COLORS;

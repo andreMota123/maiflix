@@ -10,7 +10,8 @@ const logWebhookEvent = async (status, message, payload) => {
       event: payload.event || 'unknown',
       status,
       message,
-      payload
+      payload,
+      customerEmail: payload.customer?.email?.toLowerCase(),
     });
   } catch (logError) {
     logger.error('Falha ao criar log de webhook.', { 
