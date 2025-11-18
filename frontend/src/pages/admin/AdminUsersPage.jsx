@@ -20,6 +20,14 @@ const StatusBadge = ({ status }) => {
     );
 };
 
+// Refresh Icon Component
+const RefreshIcon = ({ className = "w-5 h-5" }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0011.664 0l3.181-3.183m-3.181-3.183l-3.181-3.183a8.25 8.25 0 00-11.664 0l-3.181 3.183" />
+    </svg>
+);
+
+
 const AdminUsersPage = () => {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -179,7 +187,7 @@ const AdminUsersPage = () => {
         }
     };
 
-    if (loading) return <div className="p-6 text-center">Carregando usuários...</div>;
+    if (loading && users.length === 0) return <div className="p-6 text-center">Carregando usuários...</div>;
     if (error) return <div className="p-6 text-center text-red-400">{error}</div>;
 
     return (
@@ -189,10 +197,16 @@ const AdminUsersPage = () => {
 
             <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-bold text-white">Gerenciamento de Usuários</h2>
-                <Button onClick={() => openFormModal()} className="flex items-center space-x-2">
-                    <UserPlusIcon className="w-5 h-5" />
-                    <span>Adicionar Usuário</span>
-                </Button>
+                 <div className="flex items-center space-x-2">
+                    <Button onClick={fetchUsers} variant="secondary" className="flex items-center space-x-2" disabled={loading}>
+                        <RefreshIcon className={loading ? 'animate-spin' : ''} />
+                        <span>{loading ? 'Atualizando...' : 'Atualizar'}</span>
+                    </Button>
+                    <Button onClick={() => openFormModal()} className="flex items-center space-x-2">
+                        <UserPlusIcon className="w-5 h-5" />
+                        <span>Adicionar Usuário</span>
+                    </Button>
+                </div>
             </div>
             <div className="bg-gray-800 rounded-xl shadow-lg overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-700">

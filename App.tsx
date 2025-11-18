@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, FC, useRef, useEffect } from 'react';
 import { Page, User, Post, Product, Class, AdminPost, Comment, Notification, Banner } from './types';
 import { HomeIcon, UsersIcon, InfoIcon, FileIcon, UserCircleIcon, HeartIcon, CommentIcon, TrashIcon, BellIcon, WhatsappIcon, PhotoIcon, VideoIcon, LogoutIcon, EditIcon, UserPlusIcon, LockClosedIcon, LockOpenIcon, UserGroupIcon, BoxIcon, ChevronLeftIcon, ChevronRightIcon, Cog6ToothIcon, BookmarkIcon, EyeIcon, EyeSlashIcon } from './components/Icons';
@@ -17,11 +18,8 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // FIX: Replaced class property state initialization with a constructor to resolve a potential type resolution issue where `this.props` was not being recognized.
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false };
-  }
+  // FIX: Replaced constructor with modern class property syntax for state initialization, which is more concise and robust against potential 'this' context issues.
+  state: ErrorBoundaryState = { hasError: false };
 
   static getDerivedStateFromError(_error: Error): ErrorBoundaryState {
     // Atualiza o estado para que a próxima renderização mostre a UI de fallback.
@@ -1546,9 +1544,8 @@ const App: FC = () => {
                     }
                 }
             } catch (e) {
-                // FIX: The 'e' in a catch block is of type 'unknown'. Using a template literal is a safe way to convert it to a string for logging.
-                // FIX: Changed console.error to pass the error object as a separate argument, which is a safe way to handle the 'unknown' type.
-                console.error('Could not parse colors from local storage:', e);
+                // FIX: The 'e' in a catch block is of type 'unknown'. The linter expects a string argument here, so we concatenate the error into the message.
+                console.error('Could not parse colors from local storage: ' + String(e));
             }
         }
         return DEFAULT_COLORS;
