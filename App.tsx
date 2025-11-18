@@ -4,6 +4,8 @@
 
 
 
+
+
 import React, { useState, FC, useRef, useEffect } from 'react';
 import { Page, User, Post, Product, Class, AdminPost, Comment, Notification, Banner } from './types';
 import { HomeIcon, UsersIcon, InfoIcon, FileIcon, UserCircleIcon, HeartIcon, CommentIcon, TrashIcon, BellIcon, WhatsappIcon, PhotoIcon, VideoIcon, LogoutIcon, EditIcon, UserPlusIcon, LockClosedIcon, LockOpenIcon, UserGroupIcon, BoxIcon, ChevronLeftIcon, ChevronRightIcon, Cog6ToothIcon, BookmarkIcon, EyeIcon, EyeSlashIcon } from './components/Icons';
@@ -13,7 +15,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 // --- ERROR BOUNDARY (para produção) ---
 
 interface ErrorBoundaryProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 interface ErrorBoundaryState {
@@ -21,10 +23,10 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // FIX: Error on line 52. Switched from class property state initialization to a constructor-based approach to ensure `this.props` is correctly typed and accessible.
+  public state: ErrorBoundaryState = { hasError: false };
+
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false };
   }
 
   static getDerivedStateFromError(_error: Error): ErrorBoundaryState {
@@ -1587,7 +1589,12 @@ const App: FC = () => {
               }
             });
         
-            const jsonText = response.text.trim();
+            const text = response.text;
+            if (!text) {
+                throw new Error("Resposta vazia da IA.");
+            }
+            const jsonText = text.trim();
+            
             const updatedUsers = JSON.parse(jsonText);
             // Basic validation
             if (Array.isArray(updatedUsers)) {
@@ -1595,7 +1602,7 @@ const App: FC = () => {
             }
             throw new Error("AI response was not a valid user array.");
 
-        } catch (error) {
+        } catch (error: any) {
             // FIX: Error on line 1609. Safely handle 'unknown' error type from catch block before logging.
             const message = error instanceof Error ? error.message : String(error);
             console.error("Error updating users with Gemini:", message);
