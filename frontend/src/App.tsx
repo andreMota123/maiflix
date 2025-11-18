@@ -45,7 +45,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       );
     }
 
-    return (this.props as any).children;
+    return (this as any).props.children;
   }
 }
 
@@ -1382,4 +1382,506 @@ const AdminSettingsPage: FC<{
 
 const EditProfileModal: FC<{
     user: User;
-    onClose
+    onClose: () => void;
+    onSave: (userId: string, updates: { name: string; avatarUrl: string }) => void;
+}> = ({ user, onClose, onSave }) => {
+    const [name, setName] = useState(user.name);
+    const [avatarUrl, setAvatarUrl] = useState(user.avatarUrl);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (name.trim()) {
+            onSave(user.id, { name, avatarUrl });
+            onClose();
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+            <div className="bg-brand-surface rounded-xl p-6 w-full max-w-md shadow-lg" onClick={(e) => e.stopPropagation()}>
+                <h2 className="text-2xl font-bold text-white mb-6">Editar Perfil</h2>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="flex justify-center mb-4">
+                        <img src={avatarUrl || `https://picsum.photos/seed/${user.id}/100/100`} alt="Avatar Preview" className="w-24 h-24 rounded-full object-cover ring-2 ring-brand-primary" />
+                    </div>
+                    <Input label="Nome Completo" id="profile-name" type="text" value={name} onChange={e => setName(e.target.value)} required />
+                    <Input label="URL do Avatar" id="profile-avatar" type="text" value={avatarUrl} onChange={e => setAvatarUrl(e.target.value)} required />
+                    
+                    <div className="flex justify-end space-x-2 pt-4">
+                        <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
+                        <Button type="submit">Salvar Alterações</Button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+const ProfilePage: FC<{
+    currentUser: User;
+    posts: Post[];
+    classes: Class[];
+    onLogout: () => void;
+    onUpdateUser: (userId: string, updates: { name?: string, avatarUrl?: string }) => void;
+}> = ({ currentUser, posts, classes, onLogout, onUpdateUser }) => {
+    const [activeTab, setActiveTab] = useState<'posts' | 'classes'>('posts');
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+    const userPosts = posts.filter(p => p.author.id === currentUser.id);
+
+    return (
+        <>
+            {isEditModalOpen && <EditProfileModal user={currentUser} onClose={() => setIsEditModalOpen(false)} onSave={onUpdateUser as any} />}
+            <div className="p-4 sm:p-6">
+                <header className="bg-brand-surface rounded-xl p-6 flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-6 mb-6">
+                    <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-24 h-24 rounded-full ring-4 ring-brand-primary" />
+                    <div className="text-center sm:text-left flex-grow">
+                        <h2 className="text-3xl font-bold text-white">{currentUser.name}</h2>
+                        <p className="text-brand-text-light">{currentUser.email}</p>
+                        <span className="mt-2 inline-block px-3 py-1 text-sm font-semibold rounded-full bg-green-500/20 text-green-300">
+                            Assinatura Ativa
+                        </span>
+                    </div>
+                    <div className="flex space-x-2">
+                         <Button variant="secondary" onClick={() => setIsEditModalOpen(true)} className="flex items-center space-x-2"><EditIcon className="w-5 h-5" /><span>Editar Perfil</span></Button>
+                         <Button variant="ghost" onClick={onLogout} className="flex items-center space-x-2"><LogoutIcon className="w-5 h-5" /><span>Sair</span></Button>
+                    </div>
+                </header>
+
+                <div className="border-b border-brand-secondary mb-6">
+                    <nav className="flex space-x-4">
+                        <button onClick={() => setActiveTab('posts')} className={`px-4 py-2 font-semibold transition-colors flex items-center space-x-2 ${activeTab === 'posts' ? 'text-brand-primary border-b-2 border-brand-primary' : 'text-brand-text-light hover:text-white'}`}>
+                            <PhotoIcon className="w-5 h-5" /><span>Minhas Publicações ({userPosts.length})</span>
+                        </button>
+                        <button onClick={() => setActiveTab('classes')} className={`px-4 py-2 font-semibold transition-colors flex items-center space-x-2 ${activeTab === 'classes' ? 'text-brand-primary border-b-2 border-brand-primary' : 'text-brand-text-light hover:text-white'}`}>
+                            <BookmarkIcon className="w-5 h-5" /><span>Aulas</span>
+                        </button>
+                    </nav>
+                </div>
+
+                <main>
+                    {activeTab === 'posts' && (
+                        <div className="space-y-6">
+                            {userPosts.length > 0 ? userPosts.map(post => (
+                                <div key={post.id} className="bg-brand-surface rounded-xl p-4 sm:p-5 shadow-lg">
+                                    <div className="flex items-start justify-between">
+                                        <div className="flex items-center space-x-3">
+                                            <img src={post.author.avatarUrl} alt={post.author.name} className="w-12 h-12 rounded-full" />
+                                            <div>
+                                                <p className="font-semibold text-brand-text">{post.author.name}</p>
+                                                <p className="text-xs text-brand-text-light">{post.createdAt}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <p className="my-4 text-brand-text whitespace-pre-wrap">{post.text}</p>
+                                    <div className="my-3">
+                                        {post.imageUrl && <img src={post.imageUrl} alt="Post content" className="rounded-lg w-full max-h-[500px] object-cover" />}
+                                        {post.videoUrl && <video controls src={post.videoUrl} className="rounded-lg w-full max-h-[500px] bg-black" />}
+                                    </div>
+                                    <div className="flex items-center space-x-6 text-brand-text-light border-t border-brand-secondary mt-4 pt-3">
+                                        <div className="flex items-center space-x-2"><HeartIcon filled={post.likes.length > 0} className={`w-5 h-5 ${post.likes.length > 0 ? 'text-brand-primary' : ''}`}/><span>{post.likes.length} Curtidas</span></div>
+                                        <div className="flex items-center space-x-2"><CommentIcon className="w-5 h-5" /><span>{post.comments.length} Comentários</span></div>
+                                    </div>
+                                </div>
+                            )) : (
+                                <div className="text-center py-12 bg-brand-surface rounded-xl">
+                                    <UserCircleIcon className="w-16 h-16 mx-auto text-brand-secondary" />
+                                    <h3 className="mt-4 text-xl font-semibold">Nenhuma publicação encontrada</h3>
+                                    <p className="mt-1 text-brand-text-light">Comece a compartilhar na Comunidade!</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                    {activeTab === 'classes' && (
+                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {classes.map(cls => (
+                                <div key={cls.id} className="bg-brand-surface rounded-xl shadow-lg overflow-hidden flex flex-col group">
+                                    <div className="relative">
+                                        <img src={cls.thumbnailUrl} alt={cls.title} className="w-full h-40 object-cover" />
+                                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-16 h-16 text-white/80"><path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm14.024-.983a1.125 1.125 0 010 1.966l-5.603 3.113A1.125 1.125 0 019 15.113V8.887c0-.857.921-1.4 1.671-.983l5.603 3.113z" clipRule="evenodd" /></svg>
+                                        </div>
+                                    </div>
+                                    <div className="p-4 flex flex-col flex-grow">
+                                        <h3 className="text-lg font-bold text-white flex-grow mb-2">{cls.title}</h3>
+                                        <p className="text-sm text-brand-text-light mb-4 line-clamp-2">{cls.description}</p>
+
+                                        <Button onClick={() => alert('Indo para a aula...')} className="mt-auto w-full">Assistir Aula</Button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </main>
+            </div>
+        </>
+    );
+};
+
+
+const App: FC = () => {
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const [activePage, setActivePage] = useState<Page>(Page.Inicio);
+    const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+    const [adminPosts, setAdminPosts] = useState<AdminPost[]>(MOCK_ADMIN_POSTS);
+    const [users, setUsers] = useState<User[]>([...MOCK_USERS, MOCK_ADMIN]);
+    const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
+    const [classes] = useState<Class[]>(MOCK_CLASSES);
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [whatsappLink, setWhatsappLink] = useState('https://wa.me/5511999999999');
+    const [banners, setBanners] = useState<Banner[]>(MOCK_BANNERS);
+    const [carouselDuration, setCarouselDuration] = useState(5000); // 5 seconds
+    const [colors, setColors] = useState<Record<string, string>>(() => {
+        const savedColors = localStorage.getItem('maiflix-colors');
+        if (savedColors) {
+            try {
+                const parsed: unknown = JSON.parse(savedColors);
+                if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+                    const allValuesAreStrings = Object.values(parsed).every(
+                        (value) => typeof value === 'string'
+                    );
+                    if (allValuesAreStrings) {
+                        return parsed as Record<string, string>;
+                    }
+                }
+            } catch (e) {
+                // FIX: Safely handle 'unknown' error type from catch block before logging.
+                const message = e instanceof Error ? e.message : String(e as any);
+                console.error('Could not parse colors from local storage:', message);
+            }
+        }
+        return DEFAULT_COLORS;
+    });
+
+    const ai = new GoogleGenAI({apiKey: process.env.API_KEY!});
+
+    const updateUsersWithGemini = async (prompt: string, currentUsers: User[]): Promise<User[] | null> => {
+        try {
+            const fullPrompt = `${prompt}\n\nHere is the current list of users in JSON format. Please return the new, complete list of users in the same format.\n\n${JSON.stringify(currentUsers, null, 2)}`;
+            
+            const response = await ai.models.generateContent({
+              model: 'gemini-2.5-flash',
+              contents: fullPrompt,
+              config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      id: { type: Type.STRING },
+                      name: { type: Type.STRING },
+                      email: { type: Type.STRING },
+                      avatarUrl: { type: Type.STRING },
+                      role: { type: Type.STRING },
+                      status: { type: Type.STRING },
+                    }
+                  }
+                }
+              }
+            });
+        
+            const text = response.text;
+            if (!text) {
+                throw new Error("Resposta vazia da IA.");
+            }
+            const jsonText = text.trim();
+            
+            const updatedUsers = JSON.parse(jsonText);
+            // Basic validation
+            if (Array.isArray(updatedUsers)) {
+                return updatedUsers;
+            }
+            throw new Error("AI response was not a valid user array.");
+
+        } catch (error: any) {
+            // FIX: Error on line 1609. Safely handle 'unknown' error type from catch block before logging.
+            const message = error instanceof Error ? error.message : String(error as any);
+            console.error("Error updating users with Gemini:", message);
+            alert("Ocorreu um erro ao se comunicar com a IA. Por favor, tente novamente.");
+            return null;
+        }
+    };
+
+    useEffect(() => {
+        Object.entries(colors).forEach(([key, value]) => {
+            document.documentElement.style.setProperty(COLOR_VAR_MAP[key], value);
+        });
+        localStorage.setItem('maiflix-colors', JSON.stringify(colors));
+    }, [colors]);
+
+
+    const handleUpdateColors = (newColors: Record<string, string>) => {
+        setColors(newColors);
+    };
+
+    const handleResetColors = () => {
+        if (window.confirm('Tem certeza que deseja restaurar as cores padrão?')) {
+            setColors(DEFAULT_COLORS);
+        }
+    };
+
+    const handleLogout = () => {
+        setCurrentUser(null);
+        setActivePage(Page.Inicio);
+    };
+    
+    const handleAddNotification = (message: string) => {
+        const newNotification: Notification = {
+            id: `notif-${Date.now()}`,
+            message,
+            createdAt: new Date().toISOString(),
+            read: false,
+        };
+        setNotifications(prev => [newNotification, ...prev].slice(0, 10)); // Keep last 10
+    };
+    
+    // Admin post handlers
+    const handleAddAdminPost = (post: Omit<AdminPost, 'id'|'createdAt'>) => {
+        const newPost: AdminPost = {
+            ...post,
+            id: `a${Date.now()}`,
+            createdAt: 'Agora mesmo',
+        };
+        setAdminPosts([newPost, ...adminPosts]);
+    };
+    const handleUpdateAdminPost = (updatedPost: AdminPost) => {
+        setAdminPosts(adminPosts.map(p => p.id === updatedPost.id ? updatedPost : p));
+    };
+    const handleDeleteAdminPost = (postId: string) => {
+        setAdminPosts(adminPosts.filter(p => p.id !== postId));
+    };
+
+    // Admin user handlers
+    const handleAddUser = async (userData: Omit<User, 'id' | 'avatarUrl' | 'role' | 'status'>) => {
+        const prompt = `You are a user database API for the Maiflix app. A new user is being added with this data:
+- Name: ${userData.name}
+- Email: ${userData.email}
+
+Please add this user to the list. You must:
+1. Generate a new unique ID (e.g., 'u' followed by the current timestamp).
+2. Generate a random avatar URL from 'https://picsum.photos/seed/UNIQUE_SEED/100/100'.
+3. Set their 'role' to 'user'.
+4. Set their 'status' to 'active'.
+5. Return the COMPLETE, updated list of all users as a valid JSON array.`;
+        
+        const updatedUsers = await updateUsersWithGemini(prompt, users);
+        if (updatedUsers) {
+            setUsers(updatedUsers);
+        }
+    };
+    const handleUpdateUser = async (userId: string, updates: { name?: string, avatarUrl?: string }) => {
+        const prompt = `You are a user database API for the Maiflix app. Update the user with id '${userId}' with the following data: ${JSON.stringify(updates)}.
+Do not change any other fields for this user. Return the COMPLETE, updated list of all users as a valid JSON array.`;
+
+        const updatedUsers = await updateUsersWithGemini(prompt, users);
+        if (updatedUsers) {
+            setUsers(updatedUsers);
+            if (currentUser && currentUser.id === userId) {
+                const updatedCurrentUser = updatedUsers.find(u => u.id === userId);
+                if (updatedCurrentUser) {
+                    setCurrentUser(updatedCurrentUser);
+                }
+            }
+        }
+    };
+    const handleUpdateUserStatus = async (userId: string, status: 'active' | 'blocked') => {
+        const prompt = `You are a user database API for the Maiflix app. Update the status for the user with id '${userId}' to '${status}'.
+Return the COMPLETE, updated list of all users as a valid JSON array.`;
+        
+        const updatedUsers = await updateUsersWithGemini(prompt, users);
+        if (updatedUsers) {
+            setUsers(updatedUsers);
+        }
+    };
+    const handleDeleteUser = async (userId: string) => {
+         const prompt = `You are a user database API for the Maiflix app. Delete the user with id '${userId}'.
+Return the COMPLETE, updated list of all users without the deleted user as a valid JSON array.`;
+
+        const updatedUsers = await updateUsersWithGemini(prompt, users);
+        if (updatedUsers) {
+            setUsers(updatedUsers);
+        }
+    };
+    
+    // Admin products handlers
+    const handleAddProduct = (productData: Omit<Product, 'id'>) => {
+        const newProduct: Product = { ...productData, id: `prod${Date.now()}` };
+        setProducts([newProduct, ...products]);
+    };
+    const handleUpdateProduct = (updatedProduct: Product) => {
+        setProducts(products.map(p => p.id === updatedProduct.id ? updatedProduct : p));
+    };
+    const handleDeleteProduct = (productId: string) => {
+        setProducts(products.filter(p => p.id !== productId));
+    };
+    
+    // Admin banners handlers
+    const handleAddBanner = (bannerData: Omit<Banner, 'id'>) => {
+        const newBanner: Banner = { ...bannerData, id: `b${Date.now()}` };
+        setBanners([newBanner, ...banners]);
+    };
+    const handleUpdateBanner = (updatedBanner: Banner) => {
+        setBanners(banners.map(b => b.id === updatedBanner.id ? updatedBanner : b));
+    };
+    const handleDeleteBanner = (bannerId: string) => {
+        setBanners(banners.filter(b => b.id !== bannerId));
+    };
+
+
+    if (!currentUser) {
+        return <LoginPage onLogin={setCurrentUser} />;
+    }
+
+    type NavItem = {
+        page: Page;
+        icon: typeof HomeIcon;
+        label?: string;
+    };
+
+    const navItemsUser: NavItem[] = [
+        { page: Page.Inicio, icon: HomeIcon },
+        { page: Page.Feed, icon: InfoIcon },
+        { page: Page.Comunidade, icon: UserGroupIcon },
+        { page: Page.Perfil, icon: UserCircleIcon },
+    ];
+    
+    const navItemsAdmin: NavItem[] = [
+        { page: Page.Feed, icon: InfoIcon, label: "Avisos" },
+        { page: Page.Users, icon: UsersIcon, label: "Usuários" },
+        { page: Page.Products, icon: BoxIcon, label: "Produtos" },
+        { page: Page.Banners, icon: PhotoIcon, label: "Banners" },
+        { page: Page.Settings, icon: Cog6ToothIcon, label: "Geral" },
+    ];
+
+    const renderPage = () => {
+        switch (activePage) {
+            case Page.Inicio:
+                return <HomePage products={products} onProductClick={setSelectedProduct} banners={banners} carouselDuration={carouselDuration}/>;
+            case Page.Feed:
+                 return currentUser.role === 'admin' 
+                    ? <AdminFeedPage posts={adminPosts} onAddPost={handleAddAdminPost} onUpdatePost={handleUpdateAdminPost} onDeletePost={handleDeleteAdminPost} />
+                    : <AdminFeedPageReadOnly posts={adminPosts} />;
+            case Page.Comunidade:
+                return <CommunityPage currentUser={currentUser} onAddNotification={handleAddNotification} />;
+            case Page.Users:
+                return currentUser.role === 'admin' ? <AdminUsersPage users={users.filter(u => u.role === 'user')} onAddUser={handleAddUser} onUpdateUser={handleUpdateUser as any} onUpdateUserStatus={handleUpdateUserStatus} onDeleteUser={handleDeleteUser} /> : null;
+            case Page.Products:
+                return currentUser.role === 'admin' ? <AdminProductsPage products={products} onAddProduct={handleAddProduct} onUpdateProduct={handleUpdateProduct} onDeleteProduct={handleDeleteProduct} /> : null;
+            case Page.Banners:
+                return currentUser.role === 'admin' ? <AdminBannersPage banners={banners} carouselDuration={carouselDuration} onAddBanner={handleAddBanner} onUpdateBanner={handleUpdateBanner} onDeleteBanner={handleDeleteBanner} onUpdateCarouselDuration={setCarouselDuration} /> : null;
+            case Page.Settings:
+                return currentUser.role === 'admin' ? <AdminSettingsPage currentLink={whatsappLink} onUpdateLink={setWhatsappLink} colors={colors} onUpdateColors={handleUpdateColors} onResetColors={handleResetColors} /> : null;
+            case Page.Perfil:
+                 return <ProfilePage currentUser={currentUser} posts={MOCK_POSTS} classes={classes} onLogout={handleLogout} onUpdateUser={handleUpdateUser} />;
+            default:
+                return (
+                    <div className="p-6 text-center">
+                        <h2 className="text-2xl font-bold">Página em Construção</h2>
+                        <p className="text-brand-text-light mt-2">Volte em breve!</p>
+                    </div>
+                );
+        }
+    };
+
+    const Header: FC = () => {
+        const [notificationsOpen, setNotificationsOpen] = useState(false);
+        const unreadCount = notifications.filter(n => !n.read).length;
+
+        return (
+            <header className="bg-brand-surface sticky top-0 z-40 shadow-md flex items-center justify-between p-4 h-16">
+                <h1 className="text-2xl font-bold text-brand-primary">Maiflix</h1>
+                <div className="flex items-center space-x-4">
+                    <div className="relative">
+                        <button onClick={() => setNotificationsOpen(!notificationsOpen)} className="text-brand-text-light hover:text-white relative">
+                            <BellIcon className="w-6 h-6" />
+                            {unreadCount > 0 && (
+                                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-brand-primary text-xs font-bold text-white">{unreadCount}</span>
+                            )}
+                        </button>
+                        {notificationsOpen && (
+                            <div className="absolute right-0 mt-2 w-72 bg-brand-bg border border-brand-secondary rounded-lg shadow-lg">
+                                <div className="p-3 font-semibold border-b border-brand-secondary">Notificações</div>
+                                {notifications.length > 0 ? (
+                                    <ul className="max-h-80 overflow-y-auto">
+                                        {notifications.map(n => (
+                                            <li key={n.id} className={`p-3 text-sm border-b border-brand-secondary/50 ${n.read ? 'opacity-60' : ''}`}>{n.message}</li>
+                                        ))}
+                                    </ul>
+                                ) : (
+                                    <p className="p-4 text-sm text-brand-text-light">Nenhuma notificação nova.</p>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                    <button onClick={handleLogout} className="text-brand-text-light hover:text-white"><LogoutIcon className="w-6 h-6" /></button>
+                    <div className="flex items-center space-x-3">
+                        <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-9 h-9 rounded-full" />
+                        <span className="hidden sm:inline font-semibold">{currentUser.name}</span>
+                    </div>
+                </div>
+            </header>
+        );
+    };
+
+    const BottomNav: FC = () => {
+        const navItems: NavItem[] = currentUser.role === 'user' ? navItemsUser : navItemsAdmin;
+        return (
+            <nav className="fixed bottom-0 left-0 right-0 bg-brand-surface shadow-[0_-2px_10px_rgba(0,0,0,0.3)] z-40 md:hidden">
+                <div className="flex justify-around">
+                    {navItems.map((item) => (
+                        <button
+                            key={item.page}
+                            onClick={() => setActivePage(item.page)}
+                            className={`flex flex-col items-center justify-center w-full pt-2 pb-1 transition-colors ${activePage === item.page ? 'text-brand-primary' : 'text-brand-text-light hover:text-white'}`}
+                        >
+                            <item.icon className="w-6 h-6" />
+                            <span className="text-xs mt-1">{item.label || item.page}</span>
+                        </button>
+                    ))}
+                </div>
+            </nav>
+        );
+    };
+
+    const SideNav: FC = () => {
+        const navItems: NavItem[] = currentUser.role === 'user' ? navItemsUser : navItemsAdmin;
+        return (
+            <aside className="hidden md:block w-64 bg-brand-surface p-4 flex-shrink-0 overflow-y-auto">
+                <nav className="flex flex-col space-y-2">
+                    {navItems.map((item) => (
+                        <button
+                            key={item.page}
+                            onClick={() => setActivePage(item.page)}
+                            className={`flex items-center space-x-3 p-3 rounded-lg transition-colors ${activePage === item.page ? 'bg-brand-primary text-white' : 'text-brand-text-light hover:bg-brand-secondary hover:text-white'}`}
+                        >
+                            <item.icon className="w-6 h-6" />
+                            <span className="font-semibold">{item.label || item.page}</span>
+                        </button>
+                    ))}
+                </nav>
+            </aside>
+        );
+    };
+
+    return (
+        <div className="h-screen flex flex-col">
+            <Header />
+            <div className="flex flex-1 overflow-hidden">
+                <SideNav />
+                <main className="flex-1 pb-20 md:pb-0 overflow-y-auto">
+                    <ErrorBoundary>
+                        {renderPage()}
+                    </ErrorBoundary>
+                </main>
+            </div>
+            <BottomNav />
+            {selectedProduct && <ProductDetailPage product={selectedProduct} onClose={() => setSelectedProduct(null)} />}
+            <a href={whatsappLink} target="_blank" rel="noopener noreferrer" className="fixed bottom-20 right-4 md:bottom-6 md:right-6 bg-green-500 text-white rounded-full p-3.5 shadow-lg z-30 transform transition-transform hover:scale-110">
+                <WhatsappIcon className="w-8 h-8"/>
+            </a>
+        </div>
+    );
+};
+
+export default App;

@@ -45,7 +45,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
       );
     }
 
-    return (this.props as any).children;
+    return (this as any).props.children;
   }
 }
 
@@ -1596,7 +1596,7 @@ const App: FC = () => {
 
         } catch (error: any) {
             // FIX: Error on line 1609. Safely handle 'unknown' error type from catch block before logging.
-            const message = error instanceof Error ? error.message : String(error);
+            const message = error instanceof Error ? error.message : String(error as any);
             console.error("Error updating users with Gemini:", message);
             alert("Ocorreu um erro ao se comunicar com a IA. Por favor, tente novamente.");
             return null;
