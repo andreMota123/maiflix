@@ -7,59 +7,85 @@ exports.handleKiwifyWebhook = (req, res) => {
   
   // 2. Processe o payload de forma assíncrona.
   const body = req.body;
-  const order = body.order; // A Kiwify geralmente envolve os dados em um objeto 'order'
+  // A Kiwify pode enviar os dados dentro de um objeto 'order' ou na raiz, dependendo da versão do webhook
+  const order = body.order || body; 
+  
+  // Log inicial
+  logger.info('Iniciando processamento do webhook Kiwify...', { order_id: order?.order_id || 'N/A' });
 
-  // Verifica se existe o objeto order OU se é um payload direto (alguns testes enviam diferente)
-  const payloadData = order || body; 
-
-  // Log inicial para garantir que algo chegou
-  logger.info('Iniciando processamento do webhook Kiwify...', { order_id: payloadData?.order_id || 'N/A' });
-
-  if (!payloadData) {
+  if (!order) {
     logger.warn('Webhook da Kiwify recebido com corpo vazio ou inválido.', { payload: body });
     kiwifyService.logWebhookEvent('failed', 'Payload vazio ou inválido.', body);
     return;
   }
 
-  const customer = payloadData.Customer || payloadData.customer;
+  const customer = order.Customer || order.customer || body.Customer || body.customer;
   
-  // Tenta determinar um nome de evento padronizado
-  // A Kiwify pode mandar o status em 'order_status', 'webhook_event_type' ou dentro de 'Subscription.status'
-  let eventName = body.event; 
+  // --- LÓGICA DE DETECÇÃO DE EVENTO ROBUSTA ---
+  // A Kiwify pode mandar o status em vários lugares. Vamos checar todos.
   
-  if (!eventName) {
-      const status = payloadData.order_status;
-      const subStatus = payloadData.Subscription?.status;
-      const webhookType = payloadData.webhook_event_type;
+  let eventName = body.event; // Tenta pegar o evento direto se existir
+  const status = order.order_status;
+  const subStatus = order.Subscription?.status;
+  const webhookType = order.webhook_event_type || body.webhook_event_type;
 
-      // Prioridade para tipos explícitos de webhook se existirem
-      if (webhookType === 'subscription_late' || webhookType === 'subscription_overdue') {
-          eventName = 'subscription.overdue';
-      } else if (webhookType === 'order_chargedback') {
-          eventName = 'order.chargeback';
-      } else {
-          // Mapeamento baseado em status
-          if(status === 'paid' || status === 'approved') eventName = 'order.paid';
-          else if(status === 'refunded') eventName = 'order.refunded';
-          // Kiwify pode enviar 'chargeback' ou 'chargedback' (passado)
-          else if(status === 'chargeback' || status === 'chargedback') eventName = 'order.chargeback';
-          else if(status === 'cancelled' || status === 'canceled') eventName = 'subscription.cancelled';
-          
-          // Verifica status da assinatura se o status do pedido não for conclusivo ou for relacionado a assinatura
-          if (subStatus === 'overdue') eventName = 'subscription.overdue';
-          else if (subStatus === 'active' && !eventName) eventName = 'subscription.renewed'; // Assume renovação se ativo e não for nova compra
-      }
+  // Normaliza para minúsculo para evitar erros de case sensitive
+  const safeStatus = status ? status.toLowerCase() : '';
+  const safeWebhookType = webhookType ? webhookType.toLowerCase() : '';
+
+  // 1. Verifica Bloqueios (Prioridade)
+  if (
+      safeWebhookType === 'subscription_late' || 
+      safeWebhookType === 'subscription_overdue' || 
+      subStatus === 'overdue'
+  ) {
+      eventName = 'subscription.overdue';
+  } 
+  else if (
+      safeWebhookType === 'order_chargedback' || 
+      safeStatus === 'chargedback' || 
+      safeStatus === 'chargeback'
+  ) {
+      eventName = 'order.chargeback';
   }
-  
-  logger.info('Processando evento Kiwify', { 
-    event: eventName, 
-    orderId: payloadData.order_id,
+  // 2. Verifica Reembolso/Cancelamento
+  else if (
+      safeStatus === 'refunded' || 
+      safeWebhookType === 'order_refunded'
+  ) {
+      eventName = 'order.refunded';
+  }
+  else if (
+      safeStatus === 'cancelled' || 
+      safeStatus === 'canceled' || 
+      safeWebhookType === 'subscription_canceled'
+  ) {
+      eventName = 'subscription.cancelled';
+  }
+  // 3. Verifica Aprovação/Renovação
+  else if (
+      safeStatus === 'paid' || 
+      safeStatus === 'approved' || 
+      safeWebhookType === 'order_approved'
+  ) {
+      eventName = 'order.paid';
+  }
+  else if (subStatus === 'active' && !eventName) {
+      // Se está ativa e não caiu nos casos acima, assumimos renovação ou verificação
+      eventName = 'subscription.renewed';
+  }
+
+  logger.info('Processando evento Kiwify Identificado', { 
+    eventDetectado: eventName, 
+    webhookType: safeWebhookType,
+    status: safeStatus,
     customerEmail: customer?.email 
   });
   
-  // Log receipt 
-  kiwifyService.logWebhookEvent('received', `Webhook recebido: ${eventName || 'evento desconhecido'}`, body);
+  // Log no banco
+  kiwifyService.logWebhookEvent('received', `Webhook recebido: ${eventName || 'desconhecido'}`, body);
 
+  // Executa a ação
   switch (eventName) {
     case 'order.paid': // Compra aprovada
     case 'subscription.renewed': // Renovação
@@ -77,9 +103,7 @@ exports.handleKiwifyWebhook = (req, res) => {
       break;
       
     default:
-      // Se for 'order.paid' mas não veio no campo 'event', o switch acima já pegou pela lógica manual.
-      // Se cair aqui, é realmente algo desconhecido.
-      logger.warn('Evento Kiwify não tratado ou não determinado', { event: eventName, status: payloadData.order_status });
-      kiwifyService.logWebhookEvent('processed', `Evento não tratado: ${eventName || payloadData.order_status || 'desconhecido'}`, body);
+      logger.warn('Evento Kiwify não tratado ou inconclusivo', { event: eventName, payload: body });
+      kiwifyService.logWebhookEvent('processed', `Evento não tratado: ${eventName || safeStatus || 'desconhecido'}`, body);
   }
 };

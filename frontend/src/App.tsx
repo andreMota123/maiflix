@@ -1,3 +1,4 @@
+
 import React, { useState, FC, useRef, useEffect, Component } from 'react';
 import { Page, User, Post, Product, Class, AdminPost, Comment, Notification, Banner } from './types';
 import { HomeIcon, UsersIcon, InfoIcon, FileIcon, UserCircleIcon, HeartIcon, CommentIcon, TrashIcon, BellIcon, WhatsappIcon, PhotoIcon, VideoIcon, LogoutIcon, EditIcon, UserPlusIcon, LockClosedIcon, LockOpenIcon, UserGroupIcon, BoxIcon, ChevronLeftIcon, ChevronRightIcon, Cog6ToothIcon, BookmarkIcon, EyeIcon, EyeSlashIcon } from './components/Icons';
@@ -1594,10 +1595,8 @@ const App: FC = () => {
             }
             throw new Error("AI response was not a valid user array.");
 
-        } catch (error: any) {
-            // FIX: Error on line 1609. Safely handle 'unknown' error type from catch block before logging.
-            const message = error instanceof Error ? error.message : String(error as any);
-            console.error("Error updating users with Gemini:", message);
+        } catch (error) {
+            console.error("Error updating users with Gemini:", error);
             alert("Ocorreu um erro ao se comunicar com a IA. Por favor, tente novamente.");
             return null;
         }
