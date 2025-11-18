@@ -45,7 +45,7 @@ const activateSubscription = async (customer, payload) => {
       if (basePassword.length < 2) {
           basePassword = 'aluno';
       }
-      const plainTextPassword = `${basePassword}1234`;
+      const plainTextPassword = `${basePassword}123`;
 
       const newUser = new User({
         email: email,
