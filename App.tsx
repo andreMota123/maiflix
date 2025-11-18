@@ -21,8 +21,11 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // FIX: Errors on lines 27, 41, 55, 1875. Initializing state via a class property resolves compiler errors where `this.state` and `this.props` were not being correctly identified on the component instance, which also fixes the downstream error about the 'children' prop.
-  state: ErrorBoundaryState = { hasError: false };
+  // FIX: Error on line 52. Switched from class property state initialization to a constructor-based approach to ensure `this.props` is correctly typed and accessible.
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
 
   static getDerivedStateFromError(_error: Error): ErrorBoundaryState {
     // Atualiza o estado para que a próxima renderização mostre a UI de fallback.
@@ -40,7 +43,6 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
       return (
         <div className="p-6 text-center text-brand-text-light flex flex-col items-center justify-center h-full">
           <h2 className="text-2xl font-bold text-brand-primary mb-4">Oops! Algo deu errado.</h2>
-          {/* FIX: Corrected typo in the paragraph text. */}
           <p className="mb-6 max-w-md">Um erro inesperado ocorreu. Nossa equipe foi notificada. Por favor, tente recarregar a página.</p>
           <Button onClick={() => window.location.reload()}>
             Recarregar Página
@@ -1549,8 +1551,6 @@ const App: FC = () => {
                     }
                 }
             } catch (e) {
-                // FIX: The error "Argument of type 'unknown' is not assignable to parameter of type 'string'" likely refers to this block with an incorrect line number.
-                // Added a safer way to convert the unknown error to a string for logging.
                 // FIX: Safely handle 'unknown' error type from catch block before logging.
                 const message = e instanceof Error ? e.message : String(e);
                 console.error('Could not parse colors from local storage:', message);
@@ -1596,7 +1596,7 @@ const App: FC = () => {
             throw new Error("AI response was not a valid user array.");
 
         } catch (error) {
-            // FIX: Error on line 1610. Safely handle 'unknown' error type from catch block before logging.
+            // FIX: Error on line 1609. Safely handle 'unknown' error type from catch block before logging.
             const message = error instanceof Error ? error.message : String(error);
             console.error("Error updating users with Gemini:", message);
             alert("Ocorreu um erro ao se comunicar com a IA. Por favor, tente novamente.");

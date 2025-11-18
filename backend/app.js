@@ -32,7 +32,7 @@ app.use(cors({ origin: process.env.CORS_ORIGIN }));
 // To verify Kiwify's signature, we need the raw request body.
 // We configure express.json() to capture it for webhook routes.
 const captureRawBody = (req, res, buf, encoding) => {
-  if (req.originalUrl.startsWith('/api/webhooks/kiwify')) {
+  if (req.originalUrl.startsWith('/api/webhooks/')) {
     try {
       req.rawBody = buf.toString(encoding || 'utf8');
     } catch (e) {
@@ -60,7 +60,7 @@ app.use('/api/webhook-logs', webhookLogRoutes);
 // --- Serve Frontend in Production ---
 if (process.env.NODE_ENV === 'production') {
   // Path to the frontend build directory
-  const frontendDistPath = path.join(__dirname, '..', 'dist');
+  const frontendDistPath = path.join(__dirname, '..', 'frontend', 'dist');
   
   // Serve static files from the React app
   app.use(express.static(frontendDistPath));
@@ -68,7 +68,16 @@ if (process.env.NODE_ENV === 'production') {
   // The "catchall" handler: for any request that doesn't match one above,
   // send back React's index.html file.
   app.get('*', (req, res) => {
-    res.sendFile(path.resolve(frontendDistPath, 'index.html'));
+    const indexPath = path.resolve(frontendDistPath, 'index.html');
+    res.sendFile(indexPath, (err) => {
+      if (err) {
+        logger.error("Erro ao enviar index.html do frontend", {
+          message: err.message,
+          path: indexPath,
+        });
+        res.status(500).send("Não foi possível carregar a aplicação.");
+      }
+    });
   });
 }
 
