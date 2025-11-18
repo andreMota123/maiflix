@@ -30,14 +30,42 @@ exports.createUser = async (req, res, next) => {
   }
 
   try {
+    const lowercasedEmail = email.toLowerCase();
+    
+    // Check if a user (including soft-deleted ones) already exists with this email
+    const existingUser = await User.findOne({ email: lowercasedEmail });
+
+    if (existingUser) {
+      // If the found user was soft-deleted, we can "reactivate" and update them
+      if (existingUser.subscriptionStatus === 'deleted') {
+        logger.info(`Reativando usuário previamente removido: ${lowercasedEmail}`);
+        
+        existingUser.name = name;
+        existingUser.password = password; // Set password to trigger re-hashing
+        existingUser.role = role;
+        existingUser.subscriptionStatus = subscriptionStatus; // "Undelete" user
+        
+        const updatedUser = await existingUser.save();
+        
+        const userResponse = updatedUser.toObject();
+        delete userResponse.passwordHash;
+
+        // Return 200 OK because it was an update/reactivation, not a creation
+        return res.status(200).json(userResponse);
+      } else {
+        // If the user exists and is NOT deleted, then it's a true duplicate.
+        return res.status(409).json({ message: 'Este email já está cadastrado.' });
+      }
+    }
+
+    // If no user exists at all with this email, create a new one.
     const user = new User({
       name,
-      email, // O modelo irá aparar e converter para minúsculas
+      email: lowercasedEmail,
       role,
       subscriptionStatus,
     });
-
-    // Atribui a senha para acionar o hook de criptografia
+    // Use the virtual setter to trigger the pre-save password hashing hook
     user.password = password;
 
     const savedUser = await user.save();
@@ -46,16 +74,13 @@ exports.createUser = async (req, res, next) => {
     delete userResponse.passwordHash;
 
     res.status(201).json(userResponse);
+    
   } catch (error) {
-    // Tratamento de erro aprimorado
     if (error.name === 'ValidationError') {
         const messages = Object.values(error.errors).map(val => val.message);
         return res.status(400).json({ message: messages.join(' ') });
     }
-    if (error.code === 11000) {
-        return res.status(409).json({ message: 'Este email já está cadastrado.' });
-    }
-    // Passa outros erros para o manipulador genérico
+    // Pass other errors to the generic error handler
     next(error);
   }
 };
