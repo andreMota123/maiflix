@@ -1,29 +1,55 @@
+const crypto = require('crypto');
 const logger = require('../utils/logger');
 
 const verifyKiwifyToken = (req, res, next) => {
-  const token = process.env.KIWIFY_WEBHOOK_TOKEN;
+  const secret = process.env.KIWIFY_WEBHOOK_TOKEN;
 
-  // Se o token não estiver configurado no servidor, pula a verificação.
-  // Facilita o desenvolvimento local sem a necessidade do token.
-  if (!token) {
-    logger.warn('KIWIFY_WEBHOOK_TOKEN não está configurado no servidor. Webhook passando sem verificação de segurança.');
+  // Se o segredo não estiver configurado no servidor, pula a verificação.
+  // Útil para desenvolvimento local.
+  if (!secret) {
+    logger.warn('KIWIFY_WEBHOOK_TOKEN não está configurado. Webhook passando sem verificação de segurança.');
     return next();
   }
 
-  // Kiwify envia o token no header 'x-kiwify-webhook-token'
-  const providedToken = req.headers['x-kiwify-webhook-token'];
+  // A Kiwify envia a assinatura no cabeçalho 'X-Kiwify-Signature'.
+  const providedSignature = req.headers['x-kiwify-signature'];
 
-  if (!providedToken) {
-    logger.warn('Webhook da Kiwify recebido sem o token no header "x-kiwify-webhook-token".');
-    return res.status(401).send('Token de autenticação não fornecido.');
+  if (!providedSignature) {
+    logger.warn('Webhook da Kiwify recebido sem o header de assinatura "X-Kiwify-Signature".');
+    return res.status(401).send('Assinatura não fornecida.');
   }
 
-  if (providedToken !== token) {
-    logger.warn('Webhook da Kiwify recebido com token inválido.');
-    return res.status(403).send('Token de autenticação inválido.');
+  // A assinatura é um hash HMAC-SHA1 do corpo BRUTO da requisição.
+  // Precisamos do corpo bruto, que capturamos usando uma função `verify` em `express.json()` no app.js.
+  if (!req.rawBody) {
+      logger.error('rawBody não está disponível na requisição. Verifique a configuração do middleware express.json.', { url: req.originalUrl });
+      // Este é um erro de configuração do servidor.
+      return res.status(500).send('Erro de configuração do servidor ao processar webhook.');
   }
 
-  // Se o token for válido, continua para o processamento do webhook.
+  try {
+    // Cria o hash HMAC usando o token secreto.
+    const hmac = crypto.createHmac('sha1', secret);
+    hmac.update(req.rawBody, 'utf8');
+    const calculatedSignature = hmac.digest('hex');
+  
+    // Compara a assinatura calculada com a fornecida pela Kiwify usando uma comparação segura contra ataques de tempo.
+    const providedBuffer = Buffer.from(providedSignature, 'hex');
+    const calculatedBuffer = Buffer.from(calculatedSignature, 'hex');
+    
+    if (providedBuffer.length !== calculatedBuffer.length || !crypto.timingSafeEqual(providedBuffer, calculatedBuffer)) {
+      logger.warn('Assinatura do webhook da Kiwify inválida. A assinatura calculada não corresponde à fornecida.', {
+        providedSignature: providedSignature,
+        calculatedSignature: calculatedSignature,
+      });
+      return res.status(403).send('Assinatura inválida.');
+    }
+  } catch (error) {
+    logger.error('Erro ao calcular ou comparar a assinatura do webhook.', { error: error.message });
+    return res.status(500).send('Erro ao verificar a assinatura do webhook.');
+  }
+
+  // Se a assinatura for válida, prossiga para o manipulador do webhook.
   next();
 };
 

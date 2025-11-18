@@ -28,7 +28,22 @@ const app = express();
 // --- Core Middlewares ---
 app.use(helmet()); 
 app.use(cors({ origin: process.env.CORS_ORIGIN })); 
-app.use(express.json()); 
+
+// To verify Kiwify's signature, we need the raw request body.
+// We configure express.json() to capture it for webhook routes.
+const captureRawBody = (req, res, buf, encoding) => {
+  if (req.originalUrl.startsWith('/api/webhooks/kiwify')) {
+    try {
+      req.rawBody = buf.toString(encoding || 'utf8');
+    } catch (e) {
+      logger.error('Error capturing raw body for webhook', { error: e.message });
+      req.rawBody = ''; // Handle error appropriately
+    }
+  }
+};
+
+// Use express.json with the verify option. This MUST come before any routes that need the raw body.
+app.use(express.json({ verify: captureRawBody }));
 
 // --- API Routes ---
 app.get('/api', (req, res) => res.send('API Maiflix está no ar!'));
@@ -44,12 +59,19 @@ app.use('/api/webhook-logs', webhookLogRoutes);
 
 // --- Serve Frontend in Production ---
 if (process.env.NODE_ENV === 'production') {
-  const frontendDistPath = path.join(__dirname, '..', 'frontend', 'dist');
+  // Path to the frontend build directory
+  const frontendDistPath = path.join(__dirname, '..', 'dist');
+  
+  // Serve static files from the React app
   app.use(express.static(frontendDistPath));
+
+  // The "catchall" handler: for any request that doesn't match one above,
+  // send back React's index.html file.
   app.get('*', (req, res) => {
     res.sendFile(path.resolve(frontendDistPath, 'index.html'));
   });
 }
+
 
 // --- Centralized Error Handling Middleware ---
 app.use((err, req, res, next) => {

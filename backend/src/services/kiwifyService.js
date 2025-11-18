@@ -5,18 +5,33 @@ const WebhookLog = require('../models/WebhookLog');
 
 const logWebhookEvent = async (status, message, payload) => {
   try {
+    const order = payload.order || {};
+    // Garante que o cliente seja pego de qualquer uma das estruturas de payload
+    const customer = order.Customer || payload.customer || {};
+    
+    // Tenta determinar o evento de múltiplos campos possíveis para robustez
+    let event = payload.event;
+    if (!event) {
+        if(order.order_status === 'paid') event = 'order.paid';
+        else if(order.order_status === 'refunded') event = 'order.refunded';
+        else if(order.order_status === 'chargeback') event = 'order.chargeback';
+        else if(order.order_status === 'cancelled') event = 'subscription.cancelled';
+        else if(order.Subscription?.status === 'overdue') event = 'subscription.overdue';
+        else event = order.webhook_event_type || order.order_status || 'unknown';
+    }
+
     await WebhookLog.create({
       source: 'Kiwify',
-      event: payload.event || 'unknown',
+      event,
       status,
       message,
       payload,
-      customerEmail: payload.customer?.email?.toLowerCase(),
+      customerEmail: customer.email?.toLowerCase(),
     });
   } catch (logError) {
     logger.error('Falha ao criar log de webhook.', { 
       errorMessage: logError.message,
-      originalEvent: payload.event
+      originalPayload: payload
     });
   }
 };
