@@ -32,19 +32,23 @@ exports.handleKiwifyWebhook = (req, res) => {
   // Normaliza para minúsculo para evitar erros de case sensitive
   const safeStatus = status ? status.toLowerCase() : '';
   const safeWebhookType = webhookType ? webhookType.toLowerCase() : '';
+  const safeSubStatus = subStatus ? subStatus.toLowerCase() : '';
 
-  // 1. Verifica Bloqueios (Prioridade)
+  // 1. Verifica Bloqueios (Prioridade Alta)
   if (
       safeWebhookType === 'subscription_late' || 
       safeWebhookType === 'subscription_overdue' || 
-      subStatus === 'overdue'
+      safeSubStatus === 'overdue' ||
+      safeSubStatus === 'late' ||
+      safeStatus === 'late'
   ) {
       eventName = 'subscription.overdue';
   } 
   else if (
       safeWebhookType === 'order_chargedback' || 
       safeStatus === 'chargedback' || 
-      safeStatus === 'chargeback'
+      safeStatus === 'chargeback' ||
+      safeWebhookType === 'chargeback'
   ) {
       eventName = 'order.chargeback';
   }
@@ -58,7 +62,8 @@ exports.handleKiwifyWebhook = (req, res) => {
   else if (
       safeStatus === 'cancelled' || 
       safeStatus === 'canceled' || 
-      safeWebhookType === 'subscription_canceled'
+      safeWebhookType === 'subscription_canceled' ||
+      safeSubStatus === 'canceled'
   ) {
       eventName = 'subscription.cancelled';
   }
@@ -70,7 +75,7 @@ exports.handleKiwifyWebhook = (req, res) => {
   ) {
       eventName = 'order.paid';
   }
-  else if (subStatus === 'active' && !eventName) {
+  else if (safeSubStatus === 'active' && !eventName) {
       // Se está ativa e não caiu nos casos acima, assumimos renovação ou verificação
       eventName = 'subscription.renewed';
   }
@@ -79,26 +84,27 @@ exports.handleKiwifyWebhook = (req, res) => {
     eventDetectado: eventName, 
     webhookType: safeWebhookType,
     status: safeStatus,
+    subStatus: safeSubStatus,
     customerEmail: customer?.email 
   });
   
   // Log no banco
   kiwifyService.logWebhookEvent('received', `Webhook recebido: ${eventName || 'desconhecido'}`, body);
 
-  // Executa a ação
+  // Executa a ação baseada no evento identificado
   switch (eventName) {
-    case 'order.paid': // Compra aprovada
-    case 'subscription.renewed': // Renovação
+    case 'order.paid': // Compra aprovada (Ativa)
+    case 'subscription.renewed': // Renovação (Ativa)
       kiwifyService.activateSubscription(customer, body);
       break;
       
-    case 'order.refunded': // Reembolso
-    case 'subscription.cancelled': // Assinatura cancelada
+    case 'order.refunded': // Reembolso (Inativa)
+    case 'subscription.cancelled': // Assinatura cancelada (Inativa)
       kiwifyService.deactivateSubscription(customer, body);
       break;
       
-    case 'order.chargeback': // Chargeback (Bloqueia acesso)
-    case 'subscription.overdue': // Assinatura atrasada (Bloqueia acesso)
+    case 'order.chargeback': // Chargeback (BLOQUEIA ACESSO)
+    case 'subscription.overdue': // Assinatura atrasada (BLOQUEIA ACESSO)
       kiwifyService.blockSubscription(customer, body);
       break;
       
