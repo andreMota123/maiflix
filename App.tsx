@@ -21,11 +21,8 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // FIX: Replaced state property initializer with a constructor to ensure props and state are correctly initialized, resolving potential type inference issues.
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false };
-  }
+  // FIX: Errors on lines 27, 41, 55, 1875. Initializing state via a class property resolves compiler errors where `this.state` and `this.props` were not being correctly identified on the component instance, which also fixes the downstream error about the 'children' prop.
+  state: ErrorBoundaryState = { hasError: false };
 
   static getDerivedStateFromError(_error: Error): ErrorBoundaryState {
     // Atualiza o estado para que a próxima renderização mostre a UI de fallback.
@@ -1599,7 +1596,9 @@ const App: FC = () => {
             throw new Error("AI response was not a valid user array.");
 
         } catch (error) {
-            console.error("Error updating users with Gemini:", error);
+            // FIX: Error on line 1610. Safely handle 'unknown' error type from catch block before logging.
+            const message = error instanceof Error ? error.message : String(error);
+            console.error("Error updating users with Gemini:", message);
             alert("Ocorreu um erro ao se comunicar com a IA. Por favor, tente novamente.");
             return null;
         }

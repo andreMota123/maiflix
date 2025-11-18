@@ -15,7 +15,10 @@ const verifyKiwifyToken = (req, res, next) => {
   const providedSignature = req.headers['x-kiwify-signature'];
 
   if (!providedSignature) {
-    logger.warn('Webhook da Kiwify recebido sem o header de assinatura "X-Kiwify-Signature".');
+    // ETAPA DE DEPURAÇÃO: Loga todos os cabeçalhos recebidos para análise.
+    logger.warn('Webhook da Kiwify recebido sem o header de assinatura "X-Kiwify-Signature".', {
+        headers: req.headers,
+    });
     return res.status(401).send('Assinatura não fornecida.');
   }
 
