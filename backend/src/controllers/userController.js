@@ -6,9 +6,9 @@ const logger = require('../utils/logger');
 // @access  Private/Admin
 exports.getAllUsers = async (req, res, next) => {
   try {
-    // Retorna todos os usuários que não foram "removidos" (soft-deleted),
-    // garantindo que a lista esteja sempre limpa.
-    const users = await User.find({ subscriptionStatus: { $ne: 'deleted' } })
+    // Retorna TODOS os usuários, incluindo os removidos (soft-deleted),
+    // para que o admin tenha um histórico completo. O frontend irá diferenciá-los.
+    const users = await User.find({})
       .sort({ role: 1, createdAt: -1 });
     res.status(200).json(users);
   } catch (error) {
@@ -171,6 +171,32 @@ exports.deleteUser = async (req, res, next) => {
     delete userResponse.passwordHash;
 
     res.status(200).json({ message: 'Usuário removido com sucesso.', user: userResponse });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Restore a soft-deleted user
+// @route   PATCH /api/users/:id/restore
+// @access  Private/Admin
+exports.restoreUser = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ message: 'Usuário não encontrado.' });
+    }
+    if (user.subscriptionStatus !== 'deleted') {
+      return res.status(400).json({ message: 'Este usuário não está removido.' });
+    }
+    
+    // Restore user to 'inactive' status. Admin can then change to 'active' if needed.
+    user.subscriptionStatus = 'inactive';
+    await user.save();
+    
+    const userResponse = user.toObject();
+    delete userResponse.passwordHash;
+
+    res.status(200).json({ message: 'Usuário restaurado com sucesso.', user: userResponse });
   } catch (error) {
     next(error);
   }

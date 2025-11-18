@@ -11,6 +11,7 @@ import AdminUsersPage from './pages/admin/AdminUsersPage';
 import AdminProductsPage from './pages/admin/AdminProductsPage';
 import AdminBannersPage from './pages/admin/AdminBannersPage';
 import AdminSettingsPage from './pages/admin/AdminSettingsPage';
+import AdminWebhookLogsPage from './pages/admin/AdminWebhookLogsPage';
 import HomePage from './pages/user/HomePage';
 import UserFeedPage from './pages/user/UserFeedPage';
 import CommunityPage from './pages/user/CommunityPage';
@@ -41,6 +42,7 @@ function App() {
           <Route path="products" element={<AdminProductsPage />} />
           <Route path="banners" element={<AdminBannersPage />} />
           <Route path="settings" element={<AdminSettingsPage />} />
+          <Route path="logs" element={<AdminWebhookLogsPage />} />
           <Route path="*" element={<Navigate to="/admin" />} />
         </Route>
       </Route>

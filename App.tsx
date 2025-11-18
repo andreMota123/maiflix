@@ -1,4 +1,5 @@
 
+
 import React, { useState, FC, useRef, useEffect } from 'react';
 import { Page, User, Post, Product, Class, AdminPost, Comment, Notification, Banner } from './types';
 import { HomeIcon, UsersIcon, InfoIcon, FileIcon, UserCircleIcon, HeartIcon, CommentIcon, TrashIcon, BellIcon, WhatsappIcon, PhotoIcon, VideoIcon, LogoutIcon, EditIcon, UserPlusIcon, LockClosedIcon, LockOpenIcon, UserGroupIcon, BoxIcon, ChevronLeftIcon, ChevronRightIcon, Cog6ToothIcon, BookmarkIcon, EyeIcon, EyeSlashIcon } from './components/Icons';
@@ -16,7 +17,7 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Fix: Added a constructor to properly initialize state and ensure 'this.props' is available.
+  // Fix: Replaced state class property with a constructor to explicitly initialize state, resolving a potential type inference issue with `this.props`.
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false };
@@ -1546,8 +1547,9 @@ const App: FC = () => {
                     }
                 }
             } catch (e) {
-                // Fix: The 'e' in a catch block is of type 'unknown'. Explicitly cast to a string to satisfy the linter.
-                console.error('Could not parse colors from local storage:', String(e));
+                // Fix: The 'e' in a catch block is of type 'unknown'. Safely handled it by checking if it's an Error instance before converting to a string.
+                const errorMessage = e instanceof Error ? e.message : String(e);
+                console.error('Could not parse colors from local storage:', errorMessage);
             }
         }
         return DEFAULT_COLORS;

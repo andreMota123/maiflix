@@ -21,6 +21,7 @@ const productRoutes = require('./src/routes/productRoutes');
 const bannerRoutes = require('./src/routes/bannerRoutes');
 const settingRoutes = require('./src/routes/settingRoutes');
 const postRoutes = require('./src/routes/postRoutes');
+const webhookLogRoutes = require('./src/routes/webhookLogRoutes');
 
 const app = express();
 
@@ -39,6 +40,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/banners', bannerRoutes);
 app.use('/api/settings', settingRoutes);
 app.use('/api/posts', postRoutes);
+app.use('/api/webhook-logs', webhookLogRoutes);
 
 // --- Serve Frontend in Production ---
 if (process.env.NODE_ENV === 'production') {

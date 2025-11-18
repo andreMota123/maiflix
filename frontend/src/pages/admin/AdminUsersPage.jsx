@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import { Button } from '../../components/ui/Button';
 import { Input, Select } from '../../components/ui/Input';
-import { UserPlusIcon, EditIcon, TrashIcon, LockClosedIcon } from '../../components/Icons';
+import { UserPlusIcon, EditIcon, TrashIcon, LockClosedIcon, ArrowUturnLeftIcon } from '../../components/Icons';
 
 const statusConfig = {
     active: { text: 'Ativo', color: 'bg-green-500/20 text-green-300' },
@@ -78,6 +78,17 @@ const AdminUsersPage = () => {
                 setUsers(users.map(u => u._id === userId ? data.user : u));
             } catch (err) {
                 alert(err.response?.data?.message || 'Falha ao remover usuário.');
+            }
+        }
+    }
+
+    const handleRestore = async (userId) => {
+        if (window.confirm('Tem certeza que deseja restaurar este usuário? Ele será definido como "inativo".')) {
+            try {
+                const { data } = await api.patch(`/users/${userId}/restore`);
+                setUsers(users.map(u => u._id === userId ? data.user : u));
+            } catch (err) {
+                alert(err.response?.data?.message || 'Falha ao restaurar usuário.');
             }
         }
     }
@@ -220,7 +231,7 @@ const AdminUsersPage = () => {
                     </thead>
                     <tbody className="bg-gray-900/50 divide-y divide-gray-700">
                         {users.map(user => (
-                            <tr key={user._id}>
+                            <tr key={user._id} className={user.subscriptionStatus === 'deleted' ? 'opacity-50' : ''}>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="flex items-center">
                                         <div className="flex-shrink-0 h-10 w-10">
@@ -239,21 +250,29 @@ const AdminUsersPage = () => {
                                     {new Date(user.createdAt).toLocaleDateString('pt-BR')}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <div className="flex items-center justify-end space-x-2">
-                                         <Select 
-                                            value={user.subscriptionStatus} 
-                                            onChange={(e) => handleStatusChange(user._id, e.target.value)}
-                                            className="!py-1 !text-xs"
-                                            disabled={user.subscriptionStatus === 'deleted'}
-                                        >
-                                            <option value="active">Ativo</option>
-                                            <option value="inactive">Inativo</option>
-                                            <option value="blocked">Bloqueado</option>
-                                        </Select>
-                                        <button onClick={() => openFormModal(user)} className="p-2 text-gray-400 hover:text-white" aria-label="Editar"><EditIcon className="w-5 h-5" /></button>
-                                        <button onClick={() => openPasswordModal(user)} className="p-2 text-gray-400 hover:text-white" aria-label="Alterar Senha"><LockClosedIcon className="w-5 h-5" /></button>
-                                        <button onClick={() => handleSoftDelete(user._id)} className="p-2 text-gray-400 hover:text-pink-500" aria-label="Remover"><TrashIcon className="w-5 h-5" /></button>
-                                    </div>
+                                    {user.subscriptionStatus === 'deleted' ? (
+                                        <div className="flex items-center justify-end">
+                                            <Button onClick={() => handleRestore(user._id)} variant="ghost" className="flex items-center space-x-2 !text-green-400">
+                                                <ArrowUturnLeftIcon className="w-5 h-5" />
+                                                <span>Restaurar</span>
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center justify-end space-x-2">
+                                            <Select 
+                                                value={user.subscriptionStatus} 
+                                                onChange={(e) => handleStatusChange(user._id, e.target.value)}
+                                                className="!py-1 !text-xs"
+                                            >
+                                                <option value="active">Ativo</option>
+                                                <option value="inactive">Inativo</option>
+                                                <option value="blocked">Bloqueado</option>
+                                            </Select>
+                                            <button onClick={() => openFormModal(user)} className="p-2 text-gray-400 hover:text-white" aria-label="Editar"><EditIcon className="w-5 h-5" /></button>
+                                            <button onClick={() => openPasswordModal(user)} className="p-2 text-gray-400 hover:text-white" aria-label="Alterar Senha"><LockClosedIcon className="w-5 h-5" /></button>
+                                            <button onClick={() => handleSoftDelete(user._id)} className="p-2 text-gray-400 hover:text-pink-500" aria-label="Remover"><TrashIcon className="w-5 h-5" /></button>
+                                        </div>
+                                    )}
                                 </td>
                             </tr>
                         ))}

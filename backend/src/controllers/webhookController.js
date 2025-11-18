@@ -12,17 +12,25 @@ exports.handleKiwifyWebhook = (req, res) => {
     orderId: payload.order_id,
     customerEmail: payload.customer?.email 
   });
+  
+  // Log receipt of the webhook immediately
+  kiwifyService.logWebhookEvent('received', `Webhook recebido: ${payload.event || 'desconhecido'}`, payload);
 
   // Use um switch para lidar com diferentes eventos
   switch (payload.event) {
-    case 'order.paid': // Assinatura paga / renovada
-      kiwifyService.activateSubscription(payload.customer);
+    case 'order.paid': // Compra aprovada / Assinatura renovada
+      kiwifyService.activateSubscription(payload.customer, payload);
       break;
-    case 'order.refunded': // Assinatura reembolsada
+    case 'order.refunded': // Reembolso
+    case 'order.chargeback': // Chargeback
     case 'subscription.cancelled': // Assinatura cancelada
-      kiwifyService.deactivateSubscription(payload.customer);
+      kiwifyService.deactivateSubscription(payload.customer, payload);
+      break;
+    case 'subscription.overdue': // Assinatura atrasada
+      kiwifyService.blockSubscription(payload.customer, payload);
       break;
     default:
       logger.warn('Evento Kiwify não tratado', { event: payload.event });
+      kiwifyService.logWebhookEvent('processed', `Evento não tratado e ignorado: ${payload.event}`, payload);
   }
 };

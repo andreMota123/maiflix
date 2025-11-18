@@ -6,7 +6,8 @@ const {
   updateUser,
   deleteUser,
   updateUserStatus,
-  changeUserPassword, // Import new controller
+  changeUserPassword,
+  restoreUser,
 } = require('../controllers/userController');
 
 const { protect, admin } = require('../middlewares/authMiddleware');
@@ -24,5 +25,6 @@ router.route('/:id')
   
 router.patch('/:id/status', updateUserStatus); // Use PATCH for partial updates
 router.patch('/:id/password', changeUserPassword); // New route for changing password
+router.patch('/:id/restore', restoreUser); // New route for restoring user
 
 module.exports = router;
