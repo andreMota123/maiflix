@@ -9,15 +9,27 @@ const logWebhookEvent = async (status, message, payload) => {
     // Garante que o cliente seja pego de qualquer uma das estruturas de payload
     const customer = order.Customer || payload.customer || {};
     
-    // Tenta determinar o evento de múltiplos campos possíveis para robustez
+    // Tenta determinar o evento de múltiplos campos possíveis para robustez (mesma lógica do controller)
     let event = payload.event;
     if (!event) {
-        if(order.order_status === 'paid') event = 'order.paid';
-        else if(order.order_status === 'refunded') event = 'order.refunded';
-        else if(order.order_status === 'chargeback') event = 'order.chargeback';
-        else if(order.order_status === 'cancelled') event = 'subscription.cancelled';
-        else if(order.Subscription?.status === 'overdue') event = 'subscription.overdue';
-        else event = order.webhook_event_type || order.order_status || 'unknown';
+        const status = order.order_status;
+        const subStatus = order.Subscription?.status;
+        const webhookType = order.webhook_event_type;
+
+        if (webhookType === 'subscription_late' || webhookType === 'subscription_overdue') {
+            event = 'subscription.overdue';
+        } else if (webhookType === 'order_chargedback') {
+            event = 'order.chargeback';
+        } else {
+            if(status === 'paid' || status === 'approved') event = 'order.paid';
+            else if(status === 'refunded') event = 'order.refunded';
+            else if(status === 'chargeback' || status === 'chargedback') event = 'order.chargeback';
+            else if(status === 'cancelled' || status === 'canceled') event = 'subscription.cancelled';
+            
+            if (subStatus === 'overdue') event = 'subscription.overdue';
+        }
+        
+        if (!event) event = order.webhook_event_type || order.order_status || 'unknown';
     }
 
     await WebhookLog.create({
@@ -130,10 +142,10 @@ const blockSubscription = async (customer, payload) => {
       { new: true }
     );
     if (user) {
-      logger.info('Assinatura bloqueada devido a pagamento atrasado', { customerEmail, userId: user._id });
+      logger.info('Assinatura bloqueada (atraso ou chargeback)', { customerEmail, userId: user._id });
       await logWebhookEvent('processed', `Assinatura bloqueada para: ${customerEmail}`, payload);
     } else {
-      logger.warn('Webhook de assinatura atrasada recebido, mas usuário não foi encontrado.', { customerEmail });
+      logger.warn('Webhook de bloqueio recebido, mas usuário não foi encontrado.', { customerEmail });
       await logWebhookEvent('failed', `Usuário não encontrado para bloqueio: ${customerEmail}`, payload);
     }
   } catch (error) {

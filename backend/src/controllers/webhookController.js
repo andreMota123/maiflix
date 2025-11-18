@@ -24,13 +24,31 @@ exports.handleKiwifyWebhook = (req, res) => {
   const customer = payloadData.Customer || payloadData.customer;
   
   // Tenta determinar um nome de evento padronizado
+  // A Kiwify pode mandar o status em 'order_status', 'webhook_event_type' ou dentro de 'Subscription.status'
   let eventName = body.event; 
+  
   if (!eventName) {
-      if(payloadData.order_status === 'paid') eventName = 'order.paid';
-      else if(payloadData.order_status === 'refunded') eventName = 'order.refunded';
-      else if(payloadData.order_status === 'chargeback') eventName = 'order.chargeback';
-      else if(payloadData.order_status === 'cancelled') eventName = 'subscription.cancelled';
-      else if(payloadData.Subscription?.status === 'overdue') eventName = 'subscription.overdue';
+      const status = payloadData.order_status;
+      const subStatus = payloadData.Subscription?.status;
+      const webhookType = payloadData.webhook_event_type;
+
+      // Prioridade para tipos explícitos de webhook se existirem
+      if (webhookType === 'subscription_late' || webhookType === 'subscription_overdue') {
+          eventName = 'subscription.overdue';
+      } else if (webhookType === 'order_chargedback') {
+          eventName = 'order.chargeback';
+      } else {
+          // Mapeamento baseado em status
+          if(status === 'paid' || status === 'approved') eventName = 'order.paid';
+          else if(status === 'refunded') eventName = 'order.refunded';
+          // Kiwify pode enviar 'chargeback' ou 'chargedback' (passado)
+          else if(status === 'chargeback' || status === 'chargedback') eventName = 'order.chargeback';
+          else if(status === 'cancelled' || status === 'canceled') eventName = 'subscription.cancelled';
+          
+          // Verifica status da assinatura se o status do pedido não for conclusivo ou for relacionado a assinatura
+          if (subStatus === 'overdue') eventName = 'subscription.overdue';
+          else if (subStatus === 'active' && !eventName) eventName = 'subscription.renewed'; // Assume renovação se ativo e não for nova compra
+      }
   }
   
   logger.info('Processando evento Kiwify', { 
@@ -44,16 +62,20 @@ exports.handleKiwifyWebhook = (req, res) => {
 
   switch (eventName) {
     case 'order.paid': // Compra aprovada
+    case 'subscription.renewed': // Renovação
       kiwifyService.activateSubscription(customer, body);
       break;
+      
     case 'order.refunded': // Reembolso
-    case 'order.chargeback': // Chargeback
     case 'subscription.cancelled': // Assinatura cancelada
       kiwifyService.deactivateSubscription(customer, body);
       break;
-    case 'subscription.overdue': // Assinatura atrasada
+      
+    case 'order.chargeback': // Chargeback (Bloqueia acesso)
+    case 'subscription.overdue': // Assinatura atrasada (Bloqueia acesso)
       kiwifyService.blockSubscription(customer, body);
       break;
+      
     default:
       // Se for 'order.paid' mas não veio no campo 'event', o switch acima já pegou pela lógica manual.
       // Se cair aqui, é realmente algo desconhecido.

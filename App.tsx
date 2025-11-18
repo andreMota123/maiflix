@@ -1,11 +1,3 @@
-
-
-
-
-
-
-
-
 import React, { useState, FC, useRef, useEffect } from 'react';
 import { Page, User, Post, Product, Class, AdminPost, Comment, Notification, Banner } from './types';
 import { HomeIcon, UsersIcon, InfoIcon, FileIcon, UserCircleIcon, HeartIcon, CommentIcon, TrashIcon, BellIcon, WhatsappIcon, PhotoIcon, VideoIcon, LogoutIcon, EditIcon, UserPlusIcon, LockClosedIcon, LockOpenIcon, UserGroupIcon, BoxIcon, ChevronLeftIcon, ChevronRightIcon, Cog6ToothIcon, BookmarkIcon, EyeIcon, EyeSlashIcon } from './components/Icons';
@@ -53,7 +45,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
       );
     }
 
-    return this.props.children;
+    return (this.props as any).children;
   }
 }
 
@@ -946,7 +938,7 @@ const AdminUsersPage: FC<{
                         <Input 
                             label="Nova Senha (opcional)" 
                             id="edit-user-password" 
-                            type="password"
+                            type="password" 
                             placeholder="Deixe em branco para não alterar" 
                         />
                         <div className="flex justify-end space-x-2 pt-4">
@@ -1554,7 +1546,7 @@ const App: FC = () => {
                 }
             } catch (e) {
                 // FIX: Safely handle 'unknown' error type from catch block before logging.
-                const message = e instanceof Error ? e.message : String(e);
+                const message = e instanceof Error ? e.message : String(e as any);
                 console.error('Could not parse colors from local storage:', message);
             }
         }
