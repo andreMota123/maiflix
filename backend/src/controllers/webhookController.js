@@ -35,7 +35,7 @@ exports.handleKiwifyWebhook = (req, res) => {
   const safeSubStatus = subStatus ? subStatus.toLowerCase() : '';
 
   // 1. Verifica Bloqueios (Prioridade Alta) - Chargeback e Atraso
-  // Adicionado verificações extras para garantir captura
+  // Adicionado verificações extras para garantir captura de 'subscription_late', 'chargedback', etc.
   if (
       safeWebhookType.includes('late') || 
       safeWebhookType.includes('overdue') || 
