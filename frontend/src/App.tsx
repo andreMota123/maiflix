@@ -1,10 +1,9 @@
 
 import React, { useState, FC, useEffect } from 'react';
-import { Page, Product, Banner } from './types';
-import { HomeIcon, InfoIcon, UserGroupIcon, UserCircleIcon, UsersIcon, BoxIcon, PhotoIcon, Cog6ToothIcon, ClipboardDocumentListIcon } from './components/Icons';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 
-// Importação das Páginas Reais (Restaurando funcionalidades completas)
+// Importação das Páginas Reais
 import LoginPage from './pages/LoginPage';
 import HomePage from './pages/user/HomePage';
 import UserFeedPage from './pages/user/UserFeedPage';
@@ -15,26 +14,42 @@ import AdminUsersPage from './pages/admin/AdminUsersPage';
 import AdminProductsPage from './pages/admin/AdminProductsPage';
 import AdminBannersPage from './pages/admin/AdminBannersPage';
 import AdminSettingsPage from './pages/admin/AdminSettingsPage';
-import AdminWebhookLogsPage from './pages/admin/AdminWebhookLogsPage'; // Página de Logs adicionada
+import AdminWebhookLogsPage from './pages/admin/AdminWebhookLogsPage';
+import BlockedPage from './pages/BlockedPage';
 
 import UserLayout from './layouts/UserLayout';
 import AdminLayout from './layouts/AdminLayout';
 
-// Error Boundary Simples para Produção
+const DEFAULT_COLORS: Record<string, string> = {
+  'brand-bg': '#1a1a2e',
+  'brand-surface': '#16213e',
+  'brand-primary': '#e94560',
+  'brand-secondary': '#0f3460',
+  'brand-text': '#dcdcdc',
+  'brand-text-light': '#a7a9be',
+};
+
+const COLOR_VAR_MAP: Record<string, string> = {
+  'brand-bg': '--color-brand-bg',
+  'brand-surface': '--color-brand-surface',
+  'brand-primary': '--color-brand-primary',
+  'brand-secondary': '--color-brand-secondary',
+  'brand-text': '--color-brand-text',
+  'brand-text-light': '--color-brand-text-light',
+};
+
+// Error Boundary
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
   constructor(props: { children: React.ReactNode }) {
     super(props);
     this.state = { hasError: false };
   }
-
   static getDerivedStateFromError(_error: Error) {
     return { hasError: true };
   }
-
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error("Erro na aplicação:", error, errorInfo);
   }
-
   render() {
     if (this.state.hasError) {
       return (
@@ -52,63 +67,88 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 
 const App: FC = () => {
     const { auth } = useAuth();
-    const [activePage, setActivePage] = useState<string>(window.location.pathname);
+    
+    // --- Global State Management ---
+    // Colors are managed here to ensure they are applied globally via CSS variables
+    const [colors] = useState<Record<string, string>>(() => {
+        const savedColors = localStorage.getItem('maiflix-colors');
+        if (savedColors) {
+            try {
+                const parsed = JSON.parse(savedColors);
+                return parsed as Record<string, string>;
+            } catch (e) {
+                console.error(e);
+            }
+        }
+        return DEFAULT_COLORS;
+    });
 
-    // Sincronizar URL simples (para evitar router complexo agora, mantendo a lógica anterior mas limpa)
+    // --- Effects ---
     useEffect(() => {
-        const handlePopState = () => setActivePage(window.location.pathname);
-        window.addEventListener('popstate', handlePopState);
-        return () => window.removeEventListener('popstate', handlePopState);
-    }, []);
+        Object.entries(colors).forEach(([key, value]) => {
+            document.documentElement.style.setProperty(COLOR_VAR_MAP[key], value);
+        });
+        localStorage.setItem('maiflix-colors', JSON.stringify(colors));
+    }, [colors]);
 
-    const navigate = (path: string) => {
-        window.history.pushState({}, '', path);
-        setActivePage(path);
-    };
+
+    // --- Routing Logic ---
 
     if (!auth.user) {
         return (
             <ErrorBoundary>
-                <LoginPage />
+                <Routes>
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route path="*" element={<Navigate to="/login" replace />} />
+                </Routes>
             </ErrorBoundary>
         );
     }
 
+    // Redirect blocked users
+    if (auth.user.role !== 'admin' && (auth.user.subscriptionStatus === 'blocked' || auth.user.subscriptionStatus === 'inactive')) {
+         return (
+             <ErrorBoundary>
+                 <Routes>
+                     <Route path="/blocked" element={<BlockedPage />} />
+                     <Route path="*" element={<Navigate to="/blocked" replace />} />
+                 </Routes>
+             </ErrorBoundary>
+         )
+    }
+
     const isAdmin = auth.user.role === 'admin';
-
-    // Roteamento Manual Simplificado para restaurar funcionamento
-    const renderContent = () => {
-        // Rotas de Admin
-        if (isAdmin) {
-            if (activePage === '/admin' || activePage === '/admin/') return <AdminFeedPage />;
-            if (activePage === '/admin/users') return <AdminUsersPage />;
-            if (activePage === '/admin/products') return <AdminProductsPage />;
-            if (activePage === '/admin/banners') return <AdminBannersPage />;
-            if (activePage === '/admin/settings') return <AdminSettingsPage />;
-            if (activePage === '/admin/logs') return <AdminWebhookLogsPage />;
-        }
-
-        // Rotas de Usuário
-        if (activePage === '/' || activePage === '') return <HomePage />;
-        if (activePage === '/feed') return <UserFeedPage />;
-        if (activePage === '/comunidade') return <CommunityPage />;
-        if (activePage === '/perfil') return <ProfilePage />;
-
-        // Fallback
-        return isAdmin ? <AdminFeedPage /> : <HomePage />;
-    };
 
     return (
         <ErrorBoundary>
-             {isAdmin ? (
-                 <AdminLayout>
-                     {renderContent()}
-                 </AdminLayout>
-             ) : (
-                 <UserLayout>
-                     {renderContent()}
-                 </UserLayout>
-             )}
+            <Routes>
+                {/* ADMIN ROUTES */}
+                {isAdmin ? (
+                    <>
+                        <Route path="/admin" element={<AdminLayout><AdminFeedPage /></AdminLayout>} />
+                        <Route path="/admin/users" element={<AdminLayout><AdminUsersPage /></AdminLayout>} />
+                        <Route path="/admin/products" element={<AdminLayout><AdminProductsPage /></AdminLayout>} />
+                        <Route path="/admin/banners" element={<AdminLayout><AdminBannersPage /></AdminLayout>} />
+                        <Route path="/admin/settings" element={<AdminLayout><AdminSettingsPage /></AdminLayout>} />
+                        <Route path="/admin/logs" element={<AdminLayout><AdminWebhookLogsPage /></AdminLayout>} />
+                        {/* Redirect root to admin */}
+                        <Route path="/" element={<Navigate to="/admin" replace />} />
+                        <Route path="*" element={<Navigate to="/admin" replace />} />
+                    </>
+                ) : (
+                    <>
+                        {/* USER ROUTES */}
+                        <Route path="/" element={<UserLayout><HomePage /></UserLayout>} />
+                        <Route path="/feed" element={<UserLayout><UserFeedPage /></UserLayout>} />
+                        <Route path="/comunidade" element={<UserLayout><CommunityPage /></UserLayout>} />
+                        <Route path="/perfil" element={<UserLayout><ProfilePage /></UserLayout>} />
+                        
+                        {/* Prevent user from accessing admin */}
+                        <Route path="/admin/*" element={<Navigate to="/" replace />} />
+                        <Route path="*" element={<Navigate to="/" replace />} />
+                    </>
+                )}
+            </Routes>
         </ErrorBoundary>
     );
 };
