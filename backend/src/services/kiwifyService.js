@@ -1,4 +1,3 @@
-
 const User = require('../models/User');
 const logger = require('../utils/logger');
 const { sendWelcomeEmail } = require('../utils/emailService');
@@ -23,6 +22,16 @@ const logWebhookEvent = async (status, message, payload) => {
   }
 };
 
+// Função auxiliar para encontrar usuário por email ou email original da Kiwify
+const findUserByKiwifyEmail = async (email) => {
+    return await User.findOne({
+        $or: [
+            { email: email },
+            { kiwifyEmail: email }
+        ]
+    });
+};
+
 const activateSubscription = async (customer, payload) => {
   if (!customer || !customer.email) {
     await logWebhookEvent('failed', 'Email do cliente não encontrado.', payload);
@@ -31,7 +40,8 @@ const activateSubscription = async (customer, payload) => {
   const email = customer.email.toLowerCase();
   
   try {
-    let user = await User.findOne({ email: email });
+    // Busca inteligente: procura pelo email atual OU pelo email original da Kiwify
+    let user = await findUserByKiwifyEmail(email);
 
     if (user) {
       // Reativar usuário existente
@@ -39,9 +49,15 @@ const activateSubscription = async (customer, payload) => {
       if (user.role !== 'admin') {
           user.role = 'user'; // Garante role correta
       }
+      
+      // Se o usuário existe mas não tem kiwifyEmail setado, vamos setar agora para garantir vínculos futuros
+      if (!user.kiwifyEmail && user.email === email) {
+          user.kiwifyEmail = email;
+      }
+
       await user.save();
-      logger.info(`Usuário reativado: ${email}`);
-      await logWebhookEvent('processed', `Assinatura reativada: ${email}`, payload);
+      logger.info(`Usuário reativado: ${user.email} (Kiwify ID: ${email})`);
+      await logWebhookEvent('processed', `Assinatura reativada: ${user.email}`, payload);
     } else {
       // CRIAR NOVO USUÁRIO
       const fullName = customer.full_name || customer.name || 'Novo Assinante';
@@ -58,6 +74,7 @@ const activateSubscription = async (customer, payload) => {
         password: plainPassword, 
         subscriptionStatus: 'active',
         role: 'user',
+        kiwifyEmail: email, // Salva explicitamente o email da Kiwify na criação
       });
       
       await newUser.save();
@@ -78,15 +95,17 @@ const deactivateSubscription = async (customer, payload) => {
   if (!customer || !customer.email) return;
   const email = customer.email.toLowerCase();
   try {
-    // Cancelamento/Reembolso -> Inactive (perde acesso, mas mantém histórico)
-    const user = await User.findOneAndUpdate(
-      { email: email },
-      { subscriptionStatus: 'inactive' },
-      { new: true }
-    );
+    // Busca inteligente
+    const user = await findUserByKiwifyEmail(email);
+
     if (user) {
-        logger.info(`Usuário inativado: ${email}`);
-        await logWebhookEvent('processed', `Assinatura INATIVADA: ${email}`, payload);
+        user.subscriptionStatus = 'inactive';
+        await user.save();
+        logger.info(`Usuário inativado: ${user.email} (Kiwify ID: ${email})`);
+        await logWebhookEvent('processed', `Assinatura INATIVADA: ${user.email}`, payload);
+    } else {
+        logger.warn(`Tentativa de inativar usuário inexistente: ${email}`);
+        await logWebhookEvent('failed', `Usuário não encontrado para inativação: ${email}`, payload);
     }
   } catch (error) {
     logger.error('Erro ao inativar assinatura', { error: error.message });
@@ -98,15 +117,14 @@ const blockSubscription = async (customer, payload) => {
   if (!customer || !customer.email) return;
   const email = customer.email.toLowerCase();
   try {
-    // Chargeback/Atraso -> BLOCKED (Status de bloqueio explícito)
-    const user = await User.findOneAndUpdate(
-      { email: email },
-      { subscriptionStatus: 'blocked' },
-      { new: true }
-    );
+    // Busca inteligente
+    const user = await findUserByKiwifyEmail(email);
+
     if (user) {
-        logger.info(`!!! USUÁRIO BLOQUEADO POR INADIMPLÊNCIA: ${email} !!!`);
-        await logWebhookEvent('processed', `USUÁRIO BLOQUEADO (Chargeback/Atraso): ${email}`, payload);
+        user.subscriptionStatus = 'blocked';
+        await user.save();
+        logger.info(`!!! USUÁRIO BLOQUEADO POR INADIMPLÊNCIA: ${user.email} (Kiwify ID: ${email}) !!!`);
+        await logWebhookEvent('processed', `USUÁRIO BLOQUEADO (Chargeback/Atraso): ${user.email}`, payload);
     } else {
         logger.warn(`Tentativa de bloquear usuário inexistente: ${email}`);
         await logWebhookEvent('failed', `Usuário não encontrado para bloqueio: ${email}`, payload);

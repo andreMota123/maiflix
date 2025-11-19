@@ -139,8 +139,18 @@ const AdminUsersPage = () => {
                     <h2 className="text-2xl font-bold text-white mb-4">{user ? 'Editar Usuário' : 'Adicionar Usuário'}</h2>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <Input label="Nome Completo" name="name" type="text" value={formData.name} onChange={handleChange} required />
-                        <Input label="Email" name="email" type="email" value={formData.email} onChange={handleChange} required />
+                        <Input label="Email de Acesso" name="email" type="email" value={formData.email} onChange={handleChange} required />
+                        
+                        {user && user.kiwifyEmail && user.kiwifyEmail !== user.email && (
+                            <div className="p-3 bg-blue-900/30 border border-blue-800 rounded-lg">
+                                <label className="block text-xs font-bold text-blue-300 uppercase mb-1">Email Original (Kiwify)</label>
+                                <p className="text-sm text-gray-300">{user.kiwifyEmail}</p>
+                                <p className="text-xs text-gray-500 mt-1">Este email é usado para validar pagamentos, mesmo que o login tenha mudado.</p>
+                            </div>
+                        )}
+
                         {!user && <Input label="Senha" name="password" type="password" value={formData.password} onChange={handleChange} required />}
+                        
                         <Select label="Role" name="role" value={formData.role} onChange={handleChange}>
                             <option value="user">User</option>
                             <option value="admin">Admin</option>

@@ -15,6 +15,13 @@ const userSchema = new mongoose.Schema({
     trim: true,
     match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Por favor, forneça um endereço de email válido.'],
   },
+  // Novo campo para armazenar o email original da Kiwify caso o email de login seja alterado
+  kiwifyEmail: {
+    type: String,
+    lowercase: true,
+    trim: true,
+    index: true, // Adiciona índice para busca rápida nos webhooks
+  },
   passwordHash: {
     type: String,
     required: true,

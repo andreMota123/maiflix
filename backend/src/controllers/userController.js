@@ -112,6 +112,16 @@ exports.updateUser = async (req, res, next) => {
             if (existingUser && existingUser._id.toString() !== user._id.toString()) {
                 return res.status(409).json({ message: 'Este email já está em uso por outro usuário.' });
             }
+            
+            // Lógica de Vínculo Permanente com Kiwify:
+            // Se estamos mudando o email, salvamos o email antigo (original) no campo 'kiwifyEmail'
+            // se ele ainda não existir. Isso garante que os webhooks da Kiwify (que virão com o email antigo)
+            // ainda encontrarão este usuário.
+            if (!user.kiwifyEmail) {
+                user.kiwifyEmail = user.email;
+                logger.info(`Vínculo Kiwify criado para usuário ${user._id}: Email alterado de ${user.email} para ${email}. Email original salvo.`);
+            }
+            
             user.email = email;
         }
 
