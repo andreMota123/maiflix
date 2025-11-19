@@ -53,11 +53,11 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 
 // --- MOCK DATA ---
 const MOCK_USERS: User[] = [
-  { id: 'u1', name: 'Ana Silva', email: 'levitamota@gmail.com', avatarUrl: 'https://picsum.photos/seed/u1/100/100', role: 'user', status: 'active' },
-  { id: 'u2', name: 'Beatriz Costa', email: 'bia.costa@example.com', avatarUrl: 'https://picsum.photos/seed/u2/100/100', role: 'user', status: 'active' },
+  { id: 'u1', name: 'Ana Silva', email: 'levitamota@gmail.com', avatarUrl: 'https://picsum.photos/seed/u1/100/100', role: 'user', status: 'active' } as any,
+  { id: 'u2', name: 'Beatriz Costa', email: 'bia.costa@example.com', avatarUrl: 'https://picsum.photos/seed/u2/100/100', role: 'user', status: 'active' } as any,
 ];
 
-const MOCK_ADMIN: User = { id: 'admin1', name: 'Admin', email: 'levitamota@gmail.com', avatarUrl: 'https://picsum.photos/seed/admin1/100/100', role: 'admin', status: 'active' };
+const MOCK_ADMIN: User = { id: 'admin1', name: 'Admin', email: 'levitamota@gmail.com', avatarUrl: 'https://picsum.photos/seed/admin1/100/100', role: 'admin', status: 'active' } as any;
 
 const MOCK_POSTS: Post[] = [
   {
@@ -67,10 +67,10 @@ const MOCK_POSTS: Post[] = [
     text: 'Amei o novo kit de arquivos de corte! Olhem o que eu fiz com ele. ❤️',
     likes: ['u1'],
     comments: [
-      { id: 'c1', author: MOCK_USERS[0], text: 'Ficou incrível! Parabéns!', createdAt: '2 horas atrás' }
+      { id: 'c1', author: MOCK_USERS[0], text: 'Ficou incrível! Parabéns!', createdAt: '2 horas atrás' } as any
     ],
     createdAt: '1 dia atrás',
-  },
+  } as any,
   {
     id: 'p2',
     author: MOCK_USERS[0],
@@ -79,7 +79,7 @@ const MOCK_POSTS: Post[] = [
     likes: ['u2'],
     comments: [],
     createdAt: '2 dias atrás',
-  },
+  } as any,
   {
     id: 'p3',
     author: MOCK_USERS[1],
@@ -88,7 +88,7 @@ const MOCK_POSTS: Post[] = [
     likes: [],
     comments: [],
     createdAt: '3 dias atrás',
-  }
+  } as any
 ];
 
 const MOCK_ADMIN_POSTS: AdminPost[] = [
@@ -1554,7 +1554,7 @@ const App: FC = () => {
         return DEFAULT_COLORS;
     });
 
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+    const ai = new GoogleGenAI({ apiKey: (process.env.API_KEY as string) });
 
     const updateUsersWithGemini = async (prompt: string, currentUsers: User[]): Promise<User[] | null> => {
         try {
