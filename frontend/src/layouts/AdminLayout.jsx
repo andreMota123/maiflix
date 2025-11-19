@@ -1,9 +1,8 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { InfoIcon, UsersIcon, BoxIcon, PhotoIcon, Cog6ToothIcon, LogoutIcon, ClipboardDocumentListIcon } from '../components/Icons';
 
-// FIX: Using full, absolute paths for nested routing within /admin to be explicit.
 const navItems = [
     { label: "Avisos", icon: InfoIcon, path: "/admin" },
     { label: "Usuários", icon: UsersIcon, path: "/admin/users" },
@@ -13,8 +12,7 @@ const navItems = [
     { label: "Logs de Eventos", icon: ClipboardDocumentListIcon, path: "/admin/logs" },
 ];
 
-// FIX: Removed children prop and JSDoc, as this is now a layout route component using an Outlet.
-const AdminLayout = ({ children }) => {
+const AdminLayout = () => {
     const { auth, logout } = useAuth();
 
     const SideNav = () => (
@@ -62,7 +60,7 @@ const AdminLayout = ({ children }) => {
             <div className="flex flex-1 overflow-hidden">
                 <SideNav />
                 <main className="flex-1 overflow-y-auto">
-                    {children}
+                    <Outlet />
                 </main>
             </div>
         </div>

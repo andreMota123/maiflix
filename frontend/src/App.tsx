@@ -1,14 +1,15 @@
-
 import React, { useState, FC, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 
-// Importação das Páginas Reais
+// Importação das Páginas Reais (Conectadas ao Backend)
 import LoginPage from './pages/LoginPage';
 import HomePage from './pages/user/HomePage';
 import UserFeedPage from './pages/user/UserFeedPage';
 import CommunityPage from './pages/user/CommunityPage';
 import ProfilePage from './pages/user/ProfilePage';
+
+// Importação das Páginas de Admin Reais
 import AdminFeedPage from './pages/admin/AdminFeedPage';
 import AdminUsersPage from './pages/admin/AdminUsersPage';
 import AdminProductsPage from './pages/admin/AdminProductsPage';
@@ -38,7 +39,7 @@ const COLOR_VAR_MAP: Record<string, string> = {
   'brand-text-light': '--color-brand-text-light',
 };
 
-// Error Boundary
+// Error Boundary Simples
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
   constructor(props: { children: React.ReactNode }) {
     super(props);
@@ -68,8 +69,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 const App: FC = () => {
     const { auth } = useAuth();
     
-    // --- Global State Management ---
-    // Colors are managed here to ensure they are applied globally via CSS variables
+    // Gerenciamento de Cores Globais
     const [colors] = useState<Record<string, string>>(() => {
         const savedColors = localStorage.getItem('maiflix-colors');
         if (savedColors) {
@@ -83,7 +83,6 @@ const App: FC = () => {
         return DEFAULT_COLORS;
     });
 
-    // --- Effects ---
     useEffect(() => {
         Object.entries(colors).forEach(([key, value]) => {
             document.documentElement.style.setProperty(COLOR_VAR_MAP[key], value);
@@ -92,8 +91,9 @@ const App: FC = () => {
     }, [colors]);
 
 
-    // --- Routing Logic ---
+    // --- Lógica de Roteamento ---
 
+    // 1. Se não estiver logado, mostra Login
     if (!auth.user) {
         return (
             <ErrorBoundary>
@@ -105,7 +105,7 @@ const App: FC = () => {
         );
     }
 
-    // Redirect blocked users
+    // 2. Se estiver bloqueado ou inativo (e não for admin), redireciona para página de bloqueio
     if (auth.user.role !== 'admin' && (auth.user.subscriptionStatus === 'blocked' || auth.user.subscriptionStatus === 'inactive')) {
          return (
              <ErrorBoundary>
@@ -122,32 +122,34 @@ const App: FC = () => {
     return (
         <ErrorBoundary>
             <Routes>
-                {/* ADMIN ROUTES */}
+                {/* ROTAS DE ADMIN (Aninhadas no AdminLayout) */}
                 {isAdmin ? (
-                    <>
-                        <Route path="/admin" element={<AdminLayout><AdminFeedPage /></AdminLayout>} />
-                        <Route path="/admin/users" element={<AdminLayout><AdminUsersPage /></AdminLayout>} />
-                        <Route path="/admin/products" element={<AdminLayout><AdminProductsPage /></AdminLayout>} />
-                        <Route path="/admin/banners" element={<AdminLayout><AdminBannersPage /></AdminLayout>} />
-                        <Route path="/admin/settings" element={<AdminLayout><AdminSettingsPage /></AdminLayout>} />
-                        <Route path="/admin/logs" element={<AdminLayout><AdminWebhookLogsPage /></AdminLayout>} />
-                        {/* Redirect root to admin */}
-                        <Route path="/" element={<Navigate to="/admin" replace />} />
+                    <Route path="/admin" element={<AdminLayout />}>
+                        <Route index element={<AdminFeedPage />} />
+                        <Route path="users" element={<AdminUsersPage />} />
+                        <Route path="products" element={<AdminProductsPage />} />
+                        <Route path="banners" element={<AdminBannersPage />} />
+                        <Route path="settings" element={<AdminSettingsPage />} />
+                        <Route path="logs" element={<AdminWebhookLogsPage />} />
+                        {/* Catch-all dentro do admin */}
                         <Route path="*" element={<Navigate to="/admin" replace />} />
-                    </>
+                    </Route>
                 ) : (
+                    /* ROTAS DE USUÁRIO (Aninhadas no UserLayout) */
                     <>
-                        {/* USER ROUTES */}
                         <Route path="/" element={<UserLayout><HomePage /></UserLayout>} />
                         <Route path="/feed" element={<UserLayout><UserFeedPage /></UserLayout>} />
                         <Route path="/comunidade" element={<UserLayout><CommunityPage /></UserLayout>} />
                         <Route path="/perfil" element={<UserLayout><ProfilePage /></UserLayout>} />
                         
-                        {/* Prevent user from accessing admin */}
+                        {/* Redirecionar admin tentado acessar rota de user */}
                         <Route path="/admin/*" element={<Navigate to="/" replace />} />
                         <Route path="*" element={<Navigate to="/" replace />} />
                     </>
                 )}
+                
+                {/* Redirecionamento Raiz Inteligente */}
+                <Route path="/" element={<Navigate to={isAdmin ? "/admin" : "/"} replace />} />
             </Routes>
         </ErrorBoundary>
     );

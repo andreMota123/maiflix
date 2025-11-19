@@ -11,6 +11,7 @@ const logger = require('./src/utils/logger');
 const connectDB = require('./src/config/db');
 const setupAdmin = require('./src/utils/setupAdmin');
 const runDbMigrations = require('./src/utils/runDbMigrations');
+const { sendWelcomeEmail } = require('./src/utils/emailService'); // Importa serviço para teste
 
 // --- Import Routes ---
 const authRoutes = require('./src/routes/authRoutes');
@@ -47,6 +48,18 @@ app.use(express.json({ verify: captureRawBody }));
 
 // --- API Routes ---
 app.get('/api', (req, res) => res.send('API Maiflix está no ar!'));
+
+// Rota Temporária de Teste de Email
+app.get('/api/test-email', async (req, res) => {
+    try {
+        const emailDestino = process.env.EMAIL_USER; // Envia para o próprio email configurado
+        await sendWelcomeEmail(emailDestino, 'Teste Admin', 'senha-teste-123');
+        res.send(`E-mail de teste enviado para ${emailDestino}. Verifique sua caixa de entrada (e spam).`);
+    } catch (error) {
+        res.status(500).send(`Erro ao enviar e-mail: ${error.message}`);
+    }
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/users', userRoutes);
