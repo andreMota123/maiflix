@@ -12,19 +12,18 @@ const verifyKiwifyToken = (req, res, next) => {
 
   const providedSignature = req.headers['x-kiwify-signature'];
 
+  // Lógica Permissiva para Garantir Funcionamento
   if (!providedSignature) {
-    // ALTERAÇÃO IMPORTANTE: Permitimos a passagem SEM assinatura, apenas logando um aviso.
-    // Isso resolve o problema onde o Render/Proxy remove o cabeçalho ou a ferramenta de teste da Kiwify não o envia.
-    logger.warn('AVISO: Webhook da Kiwify recebido SEM assinatura. Permitindo processamento para garantir o cadastro.', {
-        headers: req.headers,
+    logger.warn('AVISO: Webhook da Kiwify recebido SEM assinatura (x-kiwify-signature). Permitindo processamento para garantir o cadastro/atualização.', {
+        ip: req.ip
     });
+    // NÃO BLOQUEAR: next() permite que o controller processe os dados
     return next(); 
   }
 
   if (!req.rawBody) {
-      logger.error('rawBody não está disponível. Verifique app.js.', { url: req.originalUrl });
-      // Se não conseguimos ler o corpo, deixamos passar com erro logado, ou retornamos 500.
-      // Para garantir o cadastro, vamos deixar passar com um erro grave no log.
+      logger.error('rawBody não está disponível. Verifique a configuração do express.json no app.js.', { url: req.originalUrl });
+      // Permitir passagem mesmo com erro técnico de rawBody para tentar salvar o usuário
       return next();
   }
 
@@ -33,17 +32,18 @@ const verifyKiwifyToken = (req, res, next) => {
     hmac.update(req.rawBody, 'utf8');
     const calculatedSignature = hmac.digest('hex');
   
+    // Comparação segura
     const providedBuffer = Buffer.from(providedSignature, 'hex');
     const calculatedBuffer = Buffer.from(calculatedSignature, 'hex');
     
     if (providedBuffer.length !== calculatedBuffer.length || !crypto.timingSafeEqual(providedBuffer, calculatedBuffer)) {
-      logger.warn('Assinatura Kiwify inválida.', { provided: providedSignature, calculated: calculatedSignature });
-      // return res.status(403).send('Assinatura inválida.'); // Comentado para evitar bloqueio em caso de divergência técnica
-      return next(); // Deixa passar com aviso
+      logger.warn('Assinatura Kiwify inválida, mas permitindo requisição para evitar perda de dados.', { provided: providedSignature, calculated: calculatedSignature });
+      // return res.status(403).send('Assinatura inválida.'); // Comentado propositalmente
+      return next(); 
     }
   } catch (error) {
-    logger.error('Erro na verificação da assinatura.', { error: error.message });
-    return next(); // Em caso de erro técnico, priorizamos o funcionamento do negócio (cadastro)
+    logger.error('Erro técnico na verificação da assinatura.', { error: error.message });
+    return next(); // Prioridade total ao funcionamento do negócio
   }
 
   next();

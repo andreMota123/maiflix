@@ -208,7 +208,7 @@ const Input: FC<InputProps> = ({ label, id, type, ...props }) => {
                 <input
                     id={id}
                     type={isPassword ? (showPassword ? 'text' : 'password') : type}
-                    className="w-full pl-3 pr-10 py-2 bg-brand-bg border border-brand-secondary rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                    className="w-full pl-3 pr-10 py-2 bg-brand-bg border border-brand-secondary rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary text-brand-text"
                     {...props}
                 />
                 {isPassword && (
@@ -249,8 +249,8 @@ const LoginPage: FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                 </p>
 
                 <form onSubmit={handleLogin} className="space-y-6">
-                    <Input label="Email" id="email" type="email" defaultValue={'levitamota@gmail.com'} key={mode} required />
-                    <Input label="Senha" id="password" type="password" defaultValue="Andre9157$" required />
+                    <Input label="Email" id="email" type="email" defaultValue={'levitamota@gmail.com'} key={mode} required className="text-white" />
+                    <Input label="Senha" id="password" type="password" defaultValue="Andre9157$" required className="text-white" />
                     <Button type="submit" className="w-full !py-3 !text-lg">Entrar</Button>
                 </form>
                 

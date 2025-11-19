@@ -12,7 +12,6 @@ const statusConfig = {
 };
 
 const StatusBadge = ({ status }) => {
-    // Garante que status desconhecidos tenham um fallback visual
     const safeStatus = statusConfig[status] ? status : 'inactive'; 
     const config = statusConfig[safeStatus];
     return (
@@ -41,7 +40,6 @@ const AdminUsersPage = () => {
         try {
             setLoading(true);
             setError('');
-            // Busca TODOS os usuários, inclusive deletados/bloqueados
             const { data } = await api.get('/users');
             setUsers(data);
         } catch (err) {
@@ -83,7 +81,7 @@ const AdminUsersPage = () => {
     }
 
     const handleRestore = async (userId) => {
-        if (window.confirm('Deseja restaurar este usuário? Ele voltará como Inativo.')) {
+        if (window.confirm('Deseja restaurar este usuário?')) {
             try {
                 const { data } = await api.patch(`/users/${userId}/restore`);
                 setUsers(users.map(u => u._id === userId ? data.user : u));
@@ -92,15 +90,6 @@ const AdminUsersPage = () => {
             }
         }
     }
-
-    const handleStatusChange = async (userId, newStatus) => {
-        try {
-            const { data } = await api.patch(`/users/${userId}/status`, { status: newStatus });
-            setUsers(users.map(u => u._id === userId ? data : u));
-        } catch (err) {
-            alert(err.response?.data?.message || 'Falha ao atualizar status.');
-        }
-    };
 
     const UserFormModal = ({ user, onSave, onClose }) => {
         const [formData, setFormData] = useState({
