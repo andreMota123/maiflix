@@ -46,7 +46,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
       );
     }
 
-    return this.props.children;
+    return (this as any).props.children;
   }
 }
 
@@ -523,8 +523,10 @@ const CommunityPage: FC<{ currentUser: User; onAddNotification: (message: string
 
     const handleAddPost = () => {
         if (!newPostText.trim() && !newPostMedia.url) return;
+        const postId = `p${Date.now()}`;
         const newPost: Post = {
-            id: `p${Date.now()}`,
+            id: postId,
+            _id: postId,
             author: currentUser,
             text: newPostText,
             imageUrl: newPostMedia.type === 'image' ? newPostMedia.url! : undefined,
@@ -532,7 +534,7 @@ const CommunityPage: FC<{ currentUser: User; onAddNotification: (message: string
             likes: [],
             comments: [],
             createdAt: 'Agora mesmo',
-        } as any;
+        };
         setPosts([newPost, ...posts]);
         onAddNotification(`${currentUser.name} criou um novo post.`);
         setNewPostText('');
@@ -543,12 +545,14 @@ const CommunityPage: FC<{ currentUser: User; onAddNotification: (message: string
         const commentText = commentInputs[postId];
         if (!commentText || !commentText.trim()) return;
 
+        const commentId = `c${Date.now()}`;
         const newComment: Comment = {
-            id: `c${Date.now()}`,
+            id: commentId,
+            _id: commentId,
             author: currentUser,
             text: commentText,
             createdAt: 'Agora mesmo',
-        } as any;
+        };
 
         const postAuthor = posts.find(p => p.id === postId)?.author;
 
