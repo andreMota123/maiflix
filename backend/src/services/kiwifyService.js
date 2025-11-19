@@ -8,7 +8,6 @@ const logWebhookEvent = async (status, message, payload) => {
     const order = payload.order || payload;
     const customer = order.Customer || order.customer || payload.Customer || payload.customer || {};
     
-    // Tenta extrair o nome do evento para o log ficar bonito
     let event = payload.event || order.webhook_event_type || order.order_status || 'unknown';
 
     await WebhookLog.create({
@@ -37,16 +36,21 @@ const activateSubscription = async (customer, payload) => {
     let user = await User.findOne({ email: email });
 
     if (user) {
+      // Se o usuário existe, apenas reativa
       user.subscriptionStatus = 'active';
-      // Se o usuário estava bloqueado ou inativo, reativa
+      // Se estava removido (soft-deleted), restaura
+      if (user.subscriptionStatus === 'deleted') {
+         logger.info('Restaurando usuário deletado via nova compra.', { email });
+      }
       await user.save();
-      logger.info('Assinatura ativada/renovada para usuário existente', { customerEmail: email });
-      await logWebhookEvent('processed', `Assinatura ativada para: ${email}`, payload);
+      logger.info('Assinatura ATIVADA para usuário existente', { customerEmail: email });
+      await logWebhookEvent('processed', `Assinatura ATIVADA (Existente): ${email}`, payload);
     } else {
+      // Se não existe, CRIA NOVO com senha padrão
       const fullName = customer.full_name || customer.name || 'Novo Assinante';
       const firstName = fullName.split(' ')[0] || 'aluno';
       
-      // Gera senha segura baseada no nome
+      // REGRA DE SENHA: Primeiro nome (minúsculo) + 123
       let basePassword = firstName.toLowerCase().replace(/[^a-z0-9]/gi, ''); 
       if (basePassword.length < 2) basePassword = 'aluno';
       const plainTextPassword = `${basePassword}123`;
@@ -59,8 +63,11 @@ const activateSubscription = async (customer, payload) => {
         role: 'user',
       });
       await newUser.save(); 
-      logger.info(`Novo usuário criado via Kiwify.`, { customerEmail: email });
+      
+      logger.info(`NOVO USUÁRIO CRIADO.`, { customerEmail: email, generatedPassword: plainTextPassword });
       await logWebhookEvent('processed', `Novo usuário criado: ${email}`, payload);
+      
+      // Envia email com a senha gerada
       await sendWelcomeEmail(email, firstName, plainTextPassword);
     }
 
@@ -77,14 +84,15 @@ const deactivateSubscription = async (customer, payload) => {
   }
   const customerEmail = customer.email;
   try {
+    // Define status como 'inactive' (usuário ainda pode logar mas sem acesso a conteúdo pago, ou bloqueia total dependendo da regra de negócio. Aqui usamos inactive)
     const user = await User.findOneAndUpdate(
       { email: customerEmail.toLowerCase() },
       { subscriptionStatus: 'inactive' },
       { new: true }
     );
     if (user) {
-      logger.info('Assinatura desativada (Cancelamento/Reembolso)', { customerEmail });
-      await logWebhookEvent('processed', `Assinatura desativada: ${customerEmail}`, payload);
+      logger.info('Assinatura DESATIVADA (Cancelamento/Reembolso)', { customerEmail });
+      await logWebhookEvent('processed', `Assinatura DESATIVADA: ${customerEmail}`, payload);
     } else {
       await logWebhookEvent('failed', `Usuário não encontrado para desativar: ${customerEmail}`, payload);
     }
@@ -101,7 +109,7 @@ const blockSubscription = async (customer, payload) => {
   }
   const customerEmail = customer.email;
   try {
-    // Define status explicitamente como 'blocked'
+    // REGRA: Chargeback ou Atraso = STATUS 'blocked'
     const user = await User.findOneAndUpdate(
       { email: customerEmail.toLowerCase() },
       { subscriptionStatus: 'blocked' },
@@ -109,8 +117,8 @@ const blockSubscription = async (customer, payload) => {
     );
     
     if (user) {
-      logger.info('!!! ACESSO BLOQUEADO (Chargeback/Atraso) !!!', { customerEmail });
-      await logWebhookEvent('processed', `ACESSO BLOQUEADO para: ${customerEmail}`, payload);
+      logger.info('!!! USUÁRIO BLOQUEADO (Chargeback/Atraso) !!!', { customerEmail });
+      await logWebhookEvent('processed', `USUÁRIO BLOQUEADO: ${customerEmail}`, payload);
     } else {
       logger.warn('Tentativa de bloqueio falhou: Usuário não encontrado', { customerEmail });
       await logWebhookEvent('failed', `Usuário não encontrado para bloquear: ${customerEmail}`, payload);

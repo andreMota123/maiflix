@@ -2,7 +2,7 @@ const kiwifyService = require('../services/kiwifyService');
 const logger = require('../utils/logger');
 
 exports.handleKiwifyWebhook = (req, res) => {
-  // 1. Responda IMEDIATAMENTE para a Kiwify para evitar timeouts.
+  // 1. Responda IMEDIATAMENTE para a Kiwify para evitar timeouts e retentativas desnecessárias.
   res.status(200).send('OK');
   
   // 2. Processe o payload de forma assíncrona.
@@ -10,7 +10,7 @@ exports.handleKiwifyWebhook = (req, res) => {
   // A Kiwify pode enviar os dados dentro de um objeto 'order' ou na raiz, dependendo da versão do webhook
   const order = body.order || body; 
   
-  // Log inicial
+  // Log inicial para rastreamento
   logger.info('Iniciando processamento do webhook Kiwify...', { order_id: order?.order_id || 'N/A' });
 
   if (!order) {
@@ -19,101 +19,98 @@ exports.handleKiwifyWebhook = (req, res) => {
     return;
   }
 
+  // Extração segura dos dados do cliente
   const customer = order.Customer || order.customer || body.Customer || body.customer;
   
   // --- LÓGICA DE DETECÇÃO DE EVENTO ROBUSTA ---
-  // A Kiwify pode mandar o status em vários lugares. Vamos checar todos.
+  // Normalizamos tudo para minúsculo para evitar erros de digitação/formatação
   
-  let eventName = body.event; // Tenta pegar o evento direto se existir
-  const status = order.order_status;
-  const subStatus = order.Subscription?.status;
-  const webhookType = order.webhook_event_type || body.webhook_event_type;
+  let eventName = body.event; // Alguns webhooks trazem o evento explícito
+  const status = order.order_status ? order.order_status.toLowerCase() : '';
+  const subStatus = order.Subscription?.status ? order.Subscription.status.toLowerCase() : '';
+  const webhookType = (order.webhook_event_type || body.webhook_event_type || '').toLowerCase();
 
-  // Normaliza para minúsculo para evitar erros de case sensitive
-  const safeStatus = status ? status.toLowerCase() : '';
-  const safeWebhookType = webhookType ? webhookType.toLowerCase() : '';
-  const safeSubStatus = subStatus ? subStatus.toLowerCase() : '';
+  // LOGICA DE PRIORIDADE:
+  // 1. Bloqueios (Chargeback e Atraso) - Ação: Bloquear Acesso
+  // 2. Encerramentos (Reembolso e Cancelamento) - Ação: Inativar
+  // 3. Acesso (Aprovado e Renovado) - Ação: Ativar/Criar
 
-  // 1. Verifica Bloqueios (Prioridade Alta) - Chargeback e Atraso
-  // Adicionado verificações extras para garantir captura de 'subscription_late', 'chargedback', etc.
   if (
-      safeWebhookType.includes('late') || 
-      safeWebhookType.includes('overdue') || 
-      safeSubStatus === 'overdue' ||
-      safeSubStatus === 'late' ||
-      safeStatus === 'late' ||
-      safeStatus === 'overdue'
+      webhookType.includes('late') || 
+      webhookType.includes('overdue') || 
+      subStatus === 'overdue' ||
+      subStatus === 'late' ||
+      status === 'late' ||
+      status === 'overdue'
   ) {
       eventName = 'subscription.overdue';
   } 
   else if (
-      safeWebhookType.includes('chargeback') || 
-      safeWebhookType.includes('chargedback') ||
-      safeStatus.includes('chargeback') ||
-      safeStatus.includes('chargedback')
+      webhookType.includes('chargeback') || 
+      webhookType.includes('chargedback') ||
+      status.includes('chargeback') ||
+      status.includes('chargedback')
   ) {
       eventName = 'order.chargeback';
   }
-  // 2. Verifica Reembolso/Cancelamento
   else if (
-      safeStatus === 'refunded' || 
-      safeWebhookType.includes('refunded')
+      status === 'refunded' || 
+      webhookType.includes('refunded')
   ) {
       eventName = 'order.refunded';
   }
   else if (
-      safeStatus === 'cancelled' || 
-      safeStatus === 'canceled' || 
-      safeWebhookType.includes('canceled') ||
-      safeWebhookType.includes('cancelled') ||
-      safeSubStatus === 'canceled'
+      status === 'cancelled' || 
+      status === 'canceled' || 
+      webhookType.includes('canceled') ||
+      webhookType.includes('cancelled') ||
+      subStatus === 'canceled'
   ) {
       eventName = 'subscription.cancelled';
   }
-  // 3. Verifica Aprovação/Renovação
   else if (
-      safeStatus === 'paid' || 
-      safeStatus === 'approved' || 
-      safeWebhookType === 'order_approved' ||
+      status === 'paid' || 
+      status === 'approved' || 
+      webhookType === 'order_approved' ||
       eventName === 'order_approved'
   ) {
       eventName = 'order.paid';
   }
-  else if (safeSubStatus === 'active' && !eventName) {
-      // Se está ativa e não caiu nos casos acima, assumimos renovação ou verificação
+  else if (subStatus === 'active' && !eventName) {
+      // Fallback: se a assinatura está ativa e não caiu nos anteriores
       eventName = 'subscription.renewed';
   }
 
-  logger.info('Processando evento Kiwify Identificado', { 
-    eventDetectado: eventName, 
-    webhookType: safeWebhookType,
-    status: safeStatus,
-    subStatus: safeSubStatus,
-    customerEmail: customer?.email 
+  // Log detalhado do que foi decidido
+  logger.info('Evento Kiwify Identificado', { 
+    decisao: eventName, 
+    webhookType_recebido: webhookType,
+    status_recebido: status,
+    email_cliente: customer?.email 
   });
   
-  // Log no banco
-  kiwifyService.logWebhookEvent('received', `Webhook recebido: ${eventName || 'desconhecido'}`, body);
+  // Registrar no banco de logs
+  kiwifyService.logWebhookEvent('received', `Webhook processado como: ${eventName || 'desconhecido'}`, body);
 
   // Executa a ação baseada no evento identificado
   switch (eventName) {
-    case 'order.paid': // Compra aprovada (Ativa)
-    case 'subscription.renewed': // Renovação (Ativa)
+    case 'order.paid': // Compra aprovada -> Criar ou Reativar
+    case 'subscription.renewed': // Renovação -> Manter Ativo
       kiwifyService.activateSubscription(customer, body);
       break;
       
-    case 'order.refunded': // Reembolso (Inativa)
-    case 'subscription.cancelled': // Assinatura cancelada (Inativa)
+    case 'order.refunded': // Reembolso -> Inativar
+    case 'subscription.cancelled': // Cancelamento -> Inativar
       kiwifyService.deactivateSubscription(customer, body);
       break;
       
-    case 'order.chargeback': // Chargeback (BLOQUEIA ACESSO)
-    case 'subscription.overdue': // Assinatura atrasada (BLOQUEIA ACESSO)
+    case 'order.chargeback': // Chargeback -> BLOQUEAR (Vermelho)
+    case 'subscription.overdue': // Atraso -> BLOQUEAR (Vermelho)
       kiwifyService.blockSubscription(customer, body);
       break;
       
     default:
-      logger.warn('Evento Kiwify não tratado ou inconclusivo', { event: eventName, payload: body });
-      kiwifyService.logWebhookEvent('processed', `Evento não tratado: ${eventName || safeStatus || 'desconhecido'}`, body);
+      logger.warn('Evento Kiwify não mapeado nas regras de negócio.', { event: eventName, payload: body });
+      kiwifyService.logWebhookEvent('processed', `Evento sem ação definida: ${eventName || status}`, body);
   }
 };

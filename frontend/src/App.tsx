@@ -53,11 +53,11 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 
 // --- MOCK DATA ---
 const MOCK_USERS: User[] = [
-  { id: 'u1', name: 'Ana Silva', email: 'levitamota@gmail.com', avatarUrl: 'https://picsum.photos/seed/u1/100/100', role: 'user', status: 'active' } as any,
-  { id: 'u2', name: 'Beatriz Costa', email: 'bia.costa@example.com', avatarUrl: 'https://picsum.photos/seed/u2/100/100', role: 'user', status: 'active' } as any,
+  { id: 'u1', _id: 'u1', name: 'Ana Silva', email: 'levitamota@gmail.com', avatarUrl: 'https://picsum.photos/seed/u1/100/100', role: 'user', subscriptionStatus: 'active', createdAt: '2024-01-01' } as any,
+  { id: 'u2', _id: 'u2', name: 'Beatriz Costa', email: 'bia.costa@example.com', avatarUrl: 'https://picsum.photos/seed/u2/100/100', role: 'user', subscriptionStatus: 'active', createdAt: '2024-01-02' } as any,
 ];
 
-const MOCK_ADMIN: User = { id: 'admin1', name: 'Admin', email: 'levitamota@gmail.com', avatarUrl: 'https://picsum.photos/seed/admin1/100/100', role: 'admin', status: 'active' } as any;
+const MOCK_ADMIN: User = { id: 'admin1', _id: 'admin1', name: 'Admin', email: 'levitamota@gmail.com', avatarUrl: 'https://picsum.photos/seed/admin1/100/100', role: 'admin', subscriptionStatus: 'active', createdAt: '2024-01-01' } as any;
 
 const MOCK_POSTS: Post[] = [
   {
@@ -853,7 +853,7 @@ const AdminFeedPage: FC<{
 
 const AdminUsersPage: FC<{
     users: User[];
-    onAddUser: (user: Omit<User, 'id' | 'avatarUrl' | 'role' | 'status'>) => Promise<void>;
+    onAddUser: (user: Pick<User, 'name' | 'email'>) => Promise<void>;
     onUpdateUser: (userId: string, updates: { name: string }) => Promise<void>;
     onUpdateUserStatus: (userId: string, status: 'active' | 'blocked') => Promise<void>;
     onDeleteUser: (userId: string) => Promise<void>;
@@ -978,10 +978,10 @@ const AdminUsersPage: FC<{
                                 </div>
                             </div>
                             <div className="flex items-center space-x-2 self-end sm:self-center">
-                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${user.status === 'active' ? 'bg-green-500/20 text-green-300' : 'bg-yellow-500/20 text-yellow-300'}`}>
-                                    {user.status === 'active' ? 'Ativo' : 'Bloqueado'}
+                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${user.subscriptionStatus === 'active' ? 'bg-green-500/20 text-green-300' : 'bg-yellow-500/20 text-yellow-300'}`}>
+                                    {user.subscriptionStatus === 'active' ? 'Ativo' : 'Bloqueado'}
                                 </span>
-                                {user.status === 'active' ? (
+                                {user.subscriptionStatus === 'active' ? (
                                     <button onClick={() => onUpdateUserStatus(user.id, 'blocked')} className="p-2 text-brand-text-light hover:text-yellow-400" aria-label="Bloquear usuário">
                                         <LockClosedIcon className="w-5 h-5" />
                                     </button>
@@ -1572,11 +1572,13 @@ const App: FC = () => {
                     type: Type.OBJECT,
                     properties: {
                       id: { type: Type.STRING },
+                      _id: { type: Type.STRING },
                       name: { type: Type.STRING },
                       email: { type: Type.STRING },
                       avatarUrl: { type: Type.STRING },
                       role: { type: Type.STRING },
-                      status: { type: Type.STRING },
+                      subscriptionStatus: { type: Type.STRING },
+                      createdAt: { type: Type.STRING },
                     }
                   }
                 }
@@ -1653,7 +1655,7 @@ const App: FC = () => {
     };
 
     // Admin user handlers
-    const handleAddUser = async (userData: Omit<User, 'id' | 'avatarUrl' | 'role' | 'status'>) => {
+    const handleAddUser = async (userData: Pick<User, 'name' | 'email'>) => {
         const prompt = `You are a user database API for the Maiflix app. A new user is being added with this data:
 - Name: ${userData.name}
 - Email: ${userData.email}
@@ -1662,7 +1664,7 @@ Please add this user to the list. You must:
 1. Generate a new unique ID (e.g., 'u' followed by the current timestamp).
 2. Generate a random avatar URL from 'https://picsum.photos/seed/UNIQUE_SEED/100/100'.
 3. Set their 'role' to 'user'.
-4. Set their 'status' to 'active'.
+4. Set their 'subscriptionStatus' to 'active'.
 5. Return the COMPLETE, updated list of all users as a valid JSON array.`;
         
         const updatedUsers = await updateUsersWithGemini(prompt, users);
@@ -1686,7 +1688,7 @@ Do not change any other fields for this user. Return the COMPLETE, updated list 
         }
     };
     const handleUpdateUserStatus = async (userId: string, status: 'active' | 'blocked') => {
-        const prompt = `You are a user database API for the Maiflix app. Update the status for the user with id '${userId}' to '${status}'.
+        const prompt = `You are a user database API for the Maiflix app. Update the subscriptionStatus for the user with id '${userId}' to '${status}'.
 Return the COMPLETE, updated list of all users as a valid JSON array.`;
         
         const updatedUsers = await updateUsersWithGemini(prompt, users);
