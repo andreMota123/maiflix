@@ -1,5 +1,5 @@
 
-import React, { useState, FC, useRef, useEffect, Component } from 'react';
+import React, { useState, FC, useRef, useEffect, Component, ReactNode } from 'react';
 import { Page, User, Post, Product, Class, AdminPost, Comment, Notification, Banner } from './types';
 import { HomeIcon, UsersIcon, InfoIcon, FileIcon, UserCircleIcon, HeartIcon, CommentIcon, TrashIcon, BellIcon, WhatsappIcon, PhotoIcon, VideoIcon, LogoutIcon, EditIcon, UserPlusIcon, LockClosedIcon, LockOpenIcon, UserGroupIcon, BoxIcon, ChevronLeftIcon, ChevronRightIcon, Cog6ToothIcon, BookmarkIcon, EyeIcon, EyeSlashIcon } from './components/Icons';
 import { GoogleGenAI, Type } from "@google/genai";
@@ -8,14 +8,14 @@ import { GoogleGenAI, Type } from "@google/genai";
 // --- ERROR BOUNDARY (para produção) ---
 
 interface ErrorBoundaryProps {
-  children?: React.ReactNode;
+  children?: ReactNode;
 }
 
 interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false };
 
   constructor(props: ErrorBoundaryProps) {
@@ -46,7 +46,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       );
     }
 
-    return (this as any).props.children;
+    return this.props.children;
   }
 }
 
@@ -880,7 +880,7 @@ const AdminUsersPage: FC<{
             if (name.trim() && email.trim()) {
                 setSubmitting(true);
                 try {
-                    await onAddUser({ name, email } as any);
+                    await onAddUser({ name, email });
                     setIsAddModalOpen(false);
                     setName('');
                     setEmail('');
@@ -939,7 +939,7 @@ const AdminUsersPage: FC<{
                         <Input 
                             label="Nova Senha (opcional)" 
                             id="edit-user-password" 
-                            type="password"
+                            type="password" 
                             placeholder="Deixe em branco para não alterar" 
                         />
                         <div className="flex justify-end space-x-2 pt-4">
@@ -975,7 +975,7 @@ const AdminUsersPage: FC<{
                                 </div>
                             </div>
                             <div className="flex items-center space-x-2 self-end sm:self-center">
-                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${user.status === 'active' ? 'bg-green-500/20 text-green-300' : 'bg-yellow-500/20 text-yellow-300'}` as any}>
+                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${user.status === 'active' ? 'bg-green-500/20 text-green-300' : 'bg-yellow-500/20 text-yellow-300'}`}>
                                     {user.status === 'active' ? 'Ativo' : 'Bloqueado'}
                                 </span>
                                 {user.status === 'active' ? (
@@ -1505,4 +1505,382 @@ const ProfilePage: FC<{
                                     </div>
                                     <div className="p-4 flex flex-col flex-grow">
                                         <h3 className="text-lg font-bold text-white flex-grow mb-2">{cls.title}</h3>
-                                        <p className="text-sm text-brand-text-light mb-4 line
+                                        <p className="text-sm text-brand-text-light mb-4 line-clamp-2">{cls.description}</p>
+
+                                        <Button onClick={() => alert('Indo para a aula...')} className="mt-auto w-full">Assistir Aula</Button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </main>
+            </div>
+        </>
+    );
+};
+
+
+const App: FC = () => {
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const [activePage, setActivePage] = useState<Page>(Page.Inicio);
+    const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+    const [adminPosts, setAdminPosts] = useState<AdminPost[]>(MOCK_ADMIN_POSTS);
+    const [users, setUsers] = useState<User[]>([...MOCK_USERS, MOCK_ADMIN]);
+    const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
+    const [classes] = useState<Class[]>(MOCK_CLASSES);
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [whatsappLink, setWhatsappLink] = useState('https://wa.me/5511999999999');
+    const [banners, setBanners] = useState<Banner[]>(MOCK_BANNERS);
+    const [carouselDuration, setCarouselDuration] = useState(5000); // 5 seconds
+    const [colors, setColors] = useState<Record<string, string>>(() => {
+        const savedColors = localStorage.getItem('maiflix-colors');
+        if (savedColors) {
+            try {
+                const parsed: unknown = JSON.parse(savedColors);
+                if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+                    const allValuesAreStrings = Object.values(parsed as Record<string, unknown>).every(
+                        (value) => typeof value === 'string'
+                    );
+                    if (allValuesAreStrings) {
+                        return parsed as Record<string, string>;
+                    }
+                }
+            } catch (e) {
+                // FIX: Safely handle 'unknown' error type from catch block before logging.
+                const message = e instanceof Error ? e.message : String(e as any);
+                console.error('Could not parse colors from local storage:', message);
+            }
+        }
+        return DEFAULT_COLORS;
+    });
+
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+
+    const updateUsersWithGemini = async (prompt: string, currentUsers: User[]): Promise<User[] | null> => {
+        try {
+            const fullPrompt = `${prompt}\n\nHere is the current list of users in JSON format. Please return the new, complete list of users in the same format.\n\n${JSON.stringify(currentUsers, null, 2)}`;
+            
+            const response = await ai.models.generateContent({
+              model: 'gemini-2.5-flash',
+              contents: fullPrompt,
+              config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      id: { type: Type.STRING },
+                      name: { type: Type.STRING },
+                      email: { type: Type.STRING },
+                      avatarUrl: { type: Type.STRING },
+                      role: { type: Type.STRING },
+                      status: { type: Type.STRING },
+                    }
+                  }
+                }
+              }
+            });
+        
+            const text = response.text;
+            if (!text) {
+                throw new Error("Resposta vazia da IA.");
+            }
+            const jsonText = text.trim();
+            
+            const updatedUsers = JSON.parse(jsonText);
+            // Basic validation
+            if (Array.isArray(updatedUsers)) {
+                return updatedUsers as User[];
+            }
+            throw new Error("AI response was not a valid user array.");
+
+        } catch (error) {
+            console.error("Error updating users with Gemini:", error);
+            alert("Ocorreu um erro ao se comunicar com a IA. Por favor, tente novamente.");
+            return null;
+        }
+    };
+
+    useEffect(() => {
+        Object.entries(colors).forEach(([key, value]) => {
+            document.documentElement.style.setProperty(COLOR_VAR_MAP[key], value);
+        });
+        localStorage.setItem('maiflix-colors', JSON.stringify(colors));
+    }, [colors]);
+
+
+    const handleUpdateColors = (newColors: Record<string, string>) => {
+        setColors(newColors);
+    };
+
+    const handleResetColors = () => {
+        if (window.confirm('Tem certeza que deseja restaurar as cores padrão?')) {
+            setColors(DEFAULT_COLORS);
+        }
+    };
+
+    const handleLogout = () => {
+        setCurrentUser(null);
+        setActivePage(Page.Inicio);
+    };
+    
+    const handleAddNotification = (message: string) => {
+        const newNotification: Notification = {
+            id: `notif-${Date.now()}`,
+            message,
+            createdAt: new Date().toISOString(),
+            read: false,
+        };
+        setNotifications(prev => [newNotification, ...prev].slice(0, 10)); // Keep last 10
+    };
+    
+    // Admin post handlers
+    const handleAddAdminPost = (post: Omit<AdminPost, 'id'|'createdAt'>) => {
+        const newPost: AdminPost = {
+            ...post,
+            id: `a${Date.now()}`,
+            createdAt: 'Agora mesmo',
+        };
+        setAdminPosts([newPost, ...adminPosts]);
+    };
+    const handleUpdateAdminPost = (updatedPost: AdminPost) => {
+        setAdminPosts(adminPosts.map(p => p.id === updatedPost.id ? updatedPost : p));
+    };
+    const handleDeleteAdminPost = (postId: string) => {
+        setAdminPosts(adminPosts.filter(p => p.id !== postId));
+    };
+
+    // Admin user handlers
+    const handleAddUser = async (userData: Omit<User, 'id' | 'avatarUrl' | 'role' | 'status'>) => {
+        const prompt = `You are a user database API for the Maiflix app. A new user is being added with this data:
+- Name: ${userData.name}
+- Email: ${userData.email}
+
+Please add this user to the list. You must:
+1. Generate a new unique ID (e.g., 'u' followed by the current timestamp).
+2. Generate a random avatar URL from 'https://picsum.photos/seed/UNIQUE_SEED/100/100'.
+3. Set their 'role' to 'user'.
+4. Set their 'status' to 'active'.
+5. Return the COMPLETE, updated list of all users as a valid JSON array.`;
+        
+        const updatedUsers = await updateUsersWithGemini(prompt, users);
+        if (updatedUsers) {
+            setUsers(updatedUsers);
+        }
+    };
+    const handleUpdateUser = async (userId: string, updates: { name?: string, avatarUrl?: string }) => {
+        const prompt = `You are a user database API for the Maiflix app. Update the user with id '${userId}' with the following data: ${JSON.stringify(updates)}.
+Do not change any other fields for this user. Return the COMPLETE, updated list of all users as a valid JSON array.`;
+
+        const updatedUsers = await updateUsersWithGemini(prompt, users);
+        if (updatedUsers) {
+            setUsers(updatedUsers);
+            if (currentUser && currentUser.id === userId) {
+                const updatedCurrentUser = updatedUsers.find(u => u.id === userId);
+                if (updatedCurrentUser) {
+                    setCurrentUser(updatedCurrentUser);
+                }
+            }
+        }
+    };
+    const handleUpdateUserStatus = async (userId: string, status: 'active' | 'blocked') => {
+        const prompt = `You are a user database API for the Maiflix app. Update the status for the user with id '${userId}' to '${status}'.
+Return the COMPLETE, updated list of all users as a valid JSON array.`;
+        
+        const updatedUsers = await updateUsersWithGemini(prompt, users);
+        if (updatedUsers) {
+            setUsers(updatedUsers);
+        }
+    };
+    const handleDeleteUser = async (userId: string) => {
+         const prompt = `You are a user database API for the Maiflix app. Delete the user with id '${userId}'.
+Return the COMPLETE, updated list of all users without the deleted user as a valid JSON array.`;
+
+        const updatedUsers = await updateUsersWithGemini(prompt, users);
+        if (updatedUsers) {
+            setUsers(updatedUsers);
+        }
+    };
+    
+    // Admin products handlers
+    const handleAddProduct = (productData: Omit<Product, 'id'>) => {
+        const newProduct: Product = { ...productData, id: `prod${Date.now()}` };
+        setProducts([newProduct, ...products]);
+    };
+    const handleUpdateProduct = (updatedProduct: Product) => {
+        setProducts(products.map(p => p.id === updatedProduct.id ? updatedProduct : p));
+    };
+    const handleDeleteProduct = (productId: string) => {
+        setProducts(products.filter(p => p.id !== productId));
+    };
+    
+    // Admin banners handlers
+    const handleAddBanner = (bannerData: Omit<Banner, 'id'>) => {
+        const newBanner: Banner = { ...bannerData, id: `b${Date.now()}` };
+        setBanners([newBanner, ...banners]);
+    };
+    const handleUpdateBanner = (updatedBanner: Banner) => {
+        setBanners(banners.map(b => b.id === updatedBanner.id ? updatedBanner : b));
+    };
+    const handleDeleteBanner = (bannerId: string) => {
+        setBanners(banners.filter(b => b.id !== bannerId));
+    };
+
+
+    if (!currentUser) {
+        return <LoginPage onLogin={setCurrentUser} />;
+    }
+
+    type NavItem = {
+        page: Page;
+        icon: typeof HomeIcon;
+        label?: string;
+    };
+
+    const navItemsUser: NavItem[] = [
+        { page: Page.Inicio, icon: HomeIcon },
+        { page: Page.Feed, icon: InfoIcon },
+        { page: Page.Comunidade, icon: UserGroupIcon },
+        { page: Page.Perfil, icon: UserCircleIcon },
+    ];
+    
+    const navItemsAdmin: NavItem[] = [
+        { page: Page.Feed, icon: InfoIcon, label: "Avisos" },
+        { page: Page.Users, icon: UsersIcon, label: "Usuários" },
+        { page: Page.Products, icon: BoxIcon, label: "Produtos" },
+        { page: Page.Banners, icon: PhotoIcon, label: "Banners" },
+        { page: Page.Settings, icon: Cog6ToothIcon, label: "Geral" },
+    ];
+
+    const renderPage = () => {
+        switch (activePage) {
+            case Page.Inicio:
+                return <HomePage products={products} onProductClick={setSelectedProduct} banners={banners} carouselDuration={carouselDuration}/>;
+            case Page.Feed:
+                 return currentUser.role === 'admin' 
+                    ? <AdminFeedPage posts={adminPosts} onAddPost={handleAddAdminPost} onUpdatePost={handleUpdateAdminPost} onDeletePost={handleDeleteAdminPost} />
+                    : <AdminFeedPageReadOnly posts={adminPosts} />;
+            case Page.Comunidade:
+                return <CommunityPage currentUser={currentUser} onAddNotification={handleAddNotification} />;
+            case Page.Users:
+                return currentUser.role === 'admin' ? <AdminUsersPage users={users.filter(u => u.role === 'user')} onAddUser={handleAddUser} onUpdateUser={handleUpdateUser as any} onUpdateUserStatus={handleUpdateUserStatus} onDeleteUser={handleDeleteUser} /> : null;
+            case Page.Products:
+                return currentUser.role === 'admin' ? <AdminProductsPage products={products} onAddProduct={handleAddProduct} onUpdateProduct={handleUpdateProduct} onDeleteProduct={handleDeleteProduct} /> : null;
+            case Page.Banners:
+                return currentUser.role === 'admin' ? <AdminBannersPage banners={banners} carouselDuration={carouselDuration} onAddBanner={handleAddBanner} onUpdateBanner={handleUpdateBanner} onDeleteBanner={handleDeleteBanner} onUpdateCarouselDuration={setCarouselDuration} /> : null;
+            case Page.Settings:
+                return currentUser.role === 'admin' ? <AdminSettingsPage currentLink={whatsappLink} onUpdateLink={setWhatsappLink} colors={colors} onUpdateColors={handleUpdateColors} onResetColors={handleResetColors} /> : null;
+            case Page.Perfil:
+                 return <ProfilePage currentUser={currentUser} posts={MOCK_POSTS} classes={classes} onLogout={handleLogout} onUpdateUser={handleUpdateUser} />;
+            default:
+                return (
+                    <div className="p-6 text-center">
+                        <h2 className="text-2xl font-bold">Página em Construção</h2>
+                        <p className="text-brand-text-light mt-2">Volte em breve!</p>
+                    </div>
+                );
+        }
+    };
+
+    const Header: FC = () => {
+        const [notificationsOpen, setNotificationsOpen] = useState(false);
+        const unreadCount = notifications.filter(n => !n.read).length;
+
+        return (
+            <header className="bg-brand-surface sticky top-0 z-40 shadow-md flex items-center justify-between p-4 h-16">
+                <h1 className="text-2xl font-bold text-brand-primary">Maiflix</h1>
+                <div className="flex items-center space-x-4">
+                    <div className="relative">
+                        <button onClick={() => setNotificationsOpen(!notificationsOpen)} className="text-brand-text-light hover:text-white relative">
+                            <BellIcon className="w-6 h-6" />
+                            {unreadCount > 0 && (
+                                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-brand-primary text-xs font-bold text-white">{unreadCount}</span>
+                            )}
+                        </button>
+                        {notificationsOpen && (
+                            <div className="absolute right-0 mt-2 w-72 bg-brand-bg border border-brand-secondary rounded-lg shadow-lg">
+                                <div className="p-3 font-semibold border-b border-brand-secondary">Notificações</div>
+                                {notifications.length > 0 ? (
+                                    <ul className="max-h-80 overflow-y-auto">
+                                        {notifications.map(n => (
+                                            <li key={n.id} className={`p-3 text-sm border-b border-brand-secondary/50 ${n.read ? 'opacity-60' : ''}`}>{n.message}</li>
+                                        ))}
+                                    </ul>
+                                ) : (
+                                    <p className="p-4 text-sm text-brand-text-light">Nenhuma notificação nova.</p>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                    <button onClick={handleLogout} className="text-brand-text-light hover:text-white"><LogoutIcon className="w-6 h-6" /></button>
+                    <div className="flex items-center space-x-3">
+                        <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-9 h-9 rounded-full" />
+                        <span className="hidden sm:inline font-semibold">{currentUser.name}</span>
+                    </div>
+                </div>
+            </header>
+        );
+    };
+
+    const BottomNav: FC = () => {
+        const navItems: NavItem[] = currentUser.role === 'user' ? navItemsUser : navItemsAdmin;
+        return (
+            <nav className="fixed bottom-0 left-0 right-0 bg-brand-surface shadow-[0_-2px_10px_rgba(0,0,0,0.3)] z-40 md:hidden">
+                <div className="flex justify-around">
+                    {navItems.map((item) => (
+                        <button
+                            key={item.page}
+                            onClick={() => setActivePage(item.page)}
+                            className={`flex flex-col items-center justify-center w-full pt-2 pb-1 transition-colors ${activePage === item.page ? 'text-brand-primary' : 'text-brand-text-light hover:text-white'}`}
+                        >
+                            <item.icon className="w-6 h-6" />
+                            <span className="text-xs mt-1">{item.label || item.page}</span>
+                        </button>
+                    ))}
+                </div>
+            </nav>
+        );
+    };
+
+    const SideNav: FC = () => {
+        const navItems: NavItem[] = currentUser.role === 'user' ? navItemsUser : navItemsAdmin;
+        return (
+            <aside className="hidden md:block w-64 bg-brand-surface p-4 flex-shrink-0 overflow-y-auto">
+                <nav className="flex flex-col space-y-2">
+                    {navItems.map((item) => (
+                        <button
+                            key={item.page}
+                            onClick={() => setActivePage(item.page)}
+                            className={`flex items-center space-x-3 p-3 rounded-lg transition-colors ${activePage === item.page ? 'bg-brand-primary text-white' : 'text-brand-text-light hover:bg-brand-secondary hover:text-white'}`}
+                        >
+                            <item.icon className="w-6 h-6" />
+                            <span className="font-semibold">{item.label || item.page}</span>
+                        </button>
+                    ))}
+                </nav>
+            </aside>
+        );
+    };
+
+    return (
+        <div className="h-screen flex flex-col">
+            <Header />
+            <div className="flex flex-1 overflow-hidden">
+                <SideNav />
+                <main className="flex-1 pb-20 md:pb-0 overflow-y-auto">
+                    <ErrorBoundary>
+                        {renderPage()}
+                    </ErrorBoundary>
+                </main>
+            </div>
+            <BottomNav />
+            {selectedProduct && <ProductDetailPage product={selectedProduct} onClose={() => setSelectedProduct(null)} />}
+            <a href={whatsappLink} target="_blank" rel="noopener noreferrer" className="fixed bottom-20 right-4 md:bottom-6 md:right-6 bg-green-500 text-white rounded-full p-3.5 shadow-lg z-30 transform transition-transform hover:scale-110">
+                <WhatsappIcon className="w-8 h-8"/>
+            </a>
+        </div>
+    );
+};
+
+export default App;

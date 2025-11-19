@@ -109,7 +109,7 @@ const blockSubscription = async (customer, payload) => {
     );
     
     if (user) {
-      logger.info('ACESSO BLOQUEADO (Chargeback/Atraso)', { customerEmail });
+      logger.info('!!! ACESSO BLOQUEADO (Chargeback/Atraso) !!!', { customerEmail });
       await logWebhookEvent('processed', `ACESSO BLOQUEADO para: ${customerEmail}`, payload);
     } else {
       logger.warn('Tentativa de bloqueio falhou: Usuário não encontrado', { customerEmail });

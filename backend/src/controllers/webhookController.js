@@ -34,35 +34,37 @@ exports.handleKiwifyWebhook = (req, res) => {
   const safeWebhookType = webhookType ? webhookType.toLowerCase() : '';
   const safeSubStatus = subStatus ? subStatus.toLowerCase() : '';
 
-  // 1. Verifica Bloqueios (Prioridade Alta)
+  // 1. Verifica Bloqueios (Prioridade Alta) - Chargeback e Atraso
   if (
-      safeWebhookType === 'subscription_late' || 
-      safeWebhookType === 'subscription_overdue' || 
+      safeWebhookType.includes('late') || 
+      safeWebhookType.includes('overdue') || 
       safeSubStatus === 'overdue' ||
       safeSubStatus === 'late' ||
-      safeStatus === 'late'
+      safeStatus === 'late' ||
+      safeStatus === 'overdue'
   ) {
       eventName = 'subscription.overdue';
   } 
   else if (
-      safeWebhookType === 'order_chargedback' || 
-      safeStatus === 'chargedback' || 
-      safeStatus === 'chargeback' ||
-      safeWebhookType === 'chargeback'
+      safeWebhookType.includes('chargeback') || 
+      safeWebhookType.includes('chargedback') ||
+      safeStatus.includes('chargeback') ||
+      safeStatus.includes('chargedback')
   ) {
       eventName = 'order.chargeback';
   }
   // 2. Verifica Reembolso/Cancelamento
   else if (
       safeStatus === 'refunded' || 
-      safeWebhookType === 'order_refunded'
+      safeWebhookType.includes('refunded')
   ) {
       eventName = 'order.refunded';
   }
   else if (
       safeStatus === 'cancelled' || 
       safeStatus === 'canceled' || 
-      safeWebhookType === 'subscription_canceled' ||
+      safeWebhookType.includes('canceled') ||
+      safeWebhookType.includes('cancelled') ||
       safeSubStatus === 'canceled'
   ) {
       eventName = 'subscription.cancelled';
@@ -71,7 +73,8 @@ exports.handleKiwifyWebhook = (req, res) => {
   else if (
       safeStatus === 'paid' || 
       safeStatus === 'approved' || 
-      safeWebhookType === 'order_approved'
+      safeWebhookType === 'order_approved' ||
+      eventName === 'order_approved'
   ) {
       eventName = 'order.paid';
   }
