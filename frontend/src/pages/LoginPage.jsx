@@ -68,15 +68,8 @@ const LoginPage = () => {
       <div className="w-full max-w-md bg-gray-800 p-8 rounded-2xl shadow-lg">
         <h1 className="text-4xl font-bold text-center text-pink-500 mb-2">Maiflix</h1>
         <p className="text-center text-gray-400 mb-8">
-          {mode === 'user' ? 'Seu universo de criatividade.' : 'Acesso Administrativo'}
+          {mode === 'user' ? 'Login do Assinante' : 'Acesso Administrativo'}
         </p>
-
-        <div className="text-center bg-gray-700/50 p-3 rounded-lg mb-6 text-sm text-gray-300">
-            <p>
-                <strong>Para testar:</strong><br />
-                Alterne entre os modos de login. O usuário de assinante <strong>({USER_CREDENTIALS.email})</strong> precisa ser criado no painel de admin primeiro com a senha <strong>{USER_CREDENTIALS.password}</strong>.
-            </p>
-        </div>
         
         <form onSubmit={handleSubmit} className="space-y-6">
           <Input 

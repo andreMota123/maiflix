@@ -208,7 +208,7 @@ const Input: FC<InputProps> = ({ label, id, type, ...props }) => {
                 <input
                     id={id}
                     type={isPassword ? (showPassword ? 'text' : 'password') : type}
-                    className="w-full pl-3 pr-10 py-2 bg-brand-bg border border-brand-secondary rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                    className="w-full pl-3 pr-10 py-2 bg-brand-bg border border-brand-secondary rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary text-brand-text"
                     {...props}
                 />
                 {isPassword && (
@@ -523,10 +523,9 @@ const CommunityPage: FC<{ currentUser: User; onAddNotification: (message: string
 
     const handleAddPost = () => {
         if (!newPostText.trim() && !newPostMedia.url) return;
-        const postId = `p${Date.now()}`;
         const newPost: Post = {
-            id: postId,
-            _id: postId,
+            id: `p${Date.now()}`,
+            _id: `p${Date.now()}`,
             author: currentUser,
             text: newPostText,
             imageUrl: newPostMedia.type === 'image' ? newPostMedia.url! : undefined,
@@ -545,10 +544,9 @@ const CommunityPage: FC<{ currentUser: User; onAddNotification: (message: string
         const commentText = commentInputs[postId];
         if (!commentText || !commentText.trim()) return;
 
-        const commentId = `c${Date.now()}`;
         const newComment: Comment = {
-            id: commentId,
-            _id: commentId,
+            id: `c${Date.now()}`,
+            _id: `c${Date.now()}`,
             author: currentUser,
             text: commentText,
             createdAt: 'Agora mesmo',
@@ -1558,7 +1556,7 @@ const App: FC = () => {
         return DEFAULT_COLORS;
     });
 
-    const ai = new GoogleGenAI({ apiKey: (process.env.API_KEY as string) });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 
     const updateUsersWithGemini = async (prompt: string, currentUsers: User[]): Promise<User[] | null> => {
         try {
