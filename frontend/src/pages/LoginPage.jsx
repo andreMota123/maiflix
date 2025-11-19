@@ -80,6 +80,7 @@ const LoginPage = () => {
             onChange={e => setEmail(e.target.value)} 
             required 
             autoComplete="email"
+            className="text-white"
           />
           <Input 
             label="Senha"
@@ -89,6 +90,7 @@ const LoginPage = () => {
             onChange={e => setPassword(e.target.value)} 
             required 
             autoComplete="current-password"
+            className="text-white"
           />
           
           {error && <p className="text-red-400 text-sm text-center pt-2">{error}</p>}

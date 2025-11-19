@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { EyeIcon, EyeSlashIcon } from '../Icons';
 
-export const Input = ({ label, id, type, ...props }) => {
+export const Input = ({ label, id, type, className, ...props }) => {
     const [showPassword, setShowPassword] = useState(false);
 
     const isPassword = type === 'password';
@@ -18,7 +18,7 @@ export const Input = ({ label, id, type, ...props }) => {
                 <input
                     id={id}
                     type={isPassword ? (showPassword ? 'text' : 'password') : type}
-                    className="w-full pl-3 pr-10 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 text-white"
+                    className={`w-full pl-3 pr-10 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 text-white ${className || ''}`}
                     {...props}
                 />
                 {isPassword && (
@@ -42,7 +42,7 @@ export const Select = ({ label, id, children, className, ...props }) => {
             {label && <label htmlFor={id} className="block text-sm font-medium text-gray-300 mb-1">{label}</label>}
             <select
                 id={id}
-                className={`w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 text-white ${className}`}
+                className={`w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 text-white ${className || ''}`}
                 {...props}
             >
                 {children}
