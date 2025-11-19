@@ -208,8 +208,7 @@ const Input: FC<InputProps> = ({ label, id, type, ...props }) => {
                 <input
                     id={id}
                     type={isPassword ? (showPassword ? 'text' : 'password') : type}
-                    // Added text-white to ensure visibility on dark backgrounds
-                    className="w-full pl-3 pr-10 py-2 bg-brand-bg border border-brand-secondary rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary text-white"
+                    className="w-full pl-3 pr-10 py-2 bg-brand-bg border border-brand-secondary rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
                     {...props}
                 />
                 {isPassword && (
@@ -1550,9 +1549,7 @@ const App: FC = () => {
                     }
                 }
             } catch (e) {
-                // FIX: Safely handle 'unknown' error type from catch block before logging.
-                const message = e instanceof Error ? e.message : String(e as any);
-                console.error('Could not parse colors from local storage:', message);
+                console.error('Could not parse colors from local storage:', e);
             }
         }
         return DEFAULT_COLORS;

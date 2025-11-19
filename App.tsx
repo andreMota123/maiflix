@@ -1546,9 +1546,7 @@ const App: FC = () => {
                     }
                 }
             } catch (e) {
-                // FIX: Safely handle 'unknown' error type from catch block before logging.
-                const message = e instanceof Error ? e.message : String(e as any);
-                console.error('Could not parse colors from local storage:', message);
+                console.error('Could not parse colors from local storage:', e);
             }
         }
         return DEFAULT_COLORS;
