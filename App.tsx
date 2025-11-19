@@ -1538,7 +1538,7 @@ const App: FC = () => {
             try {
                 const parsed: unknown = JSON.parse(savedColors);
                 if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-                    const allValuesAreStrings = Object.values(parsed).every(
+                    const allValuesAreStrings = Object.values(parsed as Record<string, unknown>).every(
                         (value) => typeof value === 'string'
                     );
                     if (allValuesAreStrings) {
@@ -1591,7 +1591,7 @@ const App: FC = () => {
             const updatedUsers = JSON.parse(jsonText);
             // Basic validation
             if (Array.isArray(updatedUsers)) {
-                return updatedUsers;
+                return updatedUsers as User[];
             }
             throw new Error("AI response was not a valid user array.");
 

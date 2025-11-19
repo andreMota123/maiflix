@@ -10,6 +10,14 @@ export default defineConfig(({ mode }) => {
     define: {
       'process.env.API_KEY': JSON.stringify(env.API_KEY)
     },
+    optimizeDeps: {
+      include: ['@google/genai']
+    },
+    build: {
+      commonjsOptions: {
+        include: [/node_modules/],
+      },
+    },
     server: {
       proxy: {
         // Proxy API requests to the backend server during development
