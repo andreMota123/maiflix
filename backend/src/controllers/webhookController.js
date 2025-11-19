@@ -1,3 +1,4 @@
+
 const kiwifyService = require('../services/kiwifyService');
 const logger = require('../utils/logger');
 
@@ -25,12 +26,15 @@ exports.handleKiwifyWebhook = (req, res) => {
   // --- INTELIGÊNCIA DE DETECÇÃO DE EVENTOS ---
   // Normalizamos para minúsculo para evitar falhas por Case Sensitive
   
-  let eventName = body.event || order.webhook_event_type; 
+  let eventName = body.event || order.webhook_event_type || ''; 
   const status = (order.order_status || '').toLowerCase();
   const subStatus = (order.Subscription?.status || '').toLowerCase();
   const webhookType = (order.webhook_event_type || body.webhook_event_type || '').toLowerCase();
 
-  // Regras de Prioridade:
+  // Normalização da String de Evento (caso venha vazia, tentamos inferir)
+  if (!eventName) eventName = webhookType;
+
+  // Regras de Prioridade (A ordem importa):
   
   // 1. BLOQUEIOS (Atraso ou Chargeback) -> Ação: blockSubscription
   if (
@@ -44,6 +48,7 @@ exports.handleKiwifyWebhook = (req, res) => {
   else if (
       webhookType.includes('late') || 
       webhookType.includes('overdue') || 
+      webhookType.includes('subscription_late') ||
       subStatus === 'overdue' ||
       subStatus === 'late' ||
       status === 'late'
@@ -73,7 +78,8 @@ exports.handleKiwifyWebhook = (req, res) => {
       status === 'paid' || 
       status === 'approved' || 
       webhookType === 'order_approved' ||
-      webhookType === 'order_paid'
+      webhookType === 'order_paid' ||
+      webhookType === 'subscription_renewed'
   ) {
       eventName = 'order.paid';
   }
@@ -90,22 +96,25 @@ exports.handleKiwifyWebhook = (req, res) => {
   });
   
   // Registrar no banco
-  kiwifyService.logWebhookEvent('received', `Processando como: ${eventName || 'desconhecido'}`, body);
+  kiwifyService.logWebhookEvent('received', `Classificado como: ${eventName || 'desconhecido'}`, body);
 
   // Executar Ação
   switch (eventName) {
     case 'order.paid': 
     case 'subscription.renewed': 
     case 'order_approved':
+    case 'subscription_renewed':
       kiwifyService.activateSubscription(customer, body);
       break;
       
     case 'order.refunded': 
     case 'subscription.cancelled': 
+    case 'subscription_canceled':
       kiwifyService.deactivateSubscription(customer, body);
       break;
       
     case 'order.chargeback': 
+    case 'order_chargedback':
     case 'subscription.overdue': 
     case 'subscription_late':
       kiwifyService.blockSubscription(customer, body);
@@ -113,6 +122,6 @@ exports.handleKiwifyWebhook = (req, res) => {
       
     default:
       logger.warn('Evento não possui ação definida.', { event: eventName });
-      kiwifyService.logWebhookEvent('processed', `Sem ação para evento: ${eventName}`, body);
+      kiwifyService.logWebhookEvent('processed', `Sem ação configurada para: ${eventName}`, body);
   }
 };

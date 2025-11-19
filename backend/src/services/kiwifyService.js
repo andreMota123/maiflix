@@ -1,3 +1,4 @@
+
 const User = require('../models/User');
 const logger = require('../utils/logger');
 const { sendWelcomeEmail } = require('../utils/emailService');
@@ -61,7 +62,7 @@ const activateSubscription = async (customer, payload) => {
       
       await newUser.save();
       
-      logger.info(`Novo usuário criado via Kiwify: ${email}`);
+      logger.info(`Novo usuário criado via Kiwify: ${email} com senha ${plainPassword}`);
       await logWebhookEvent('processed', `Novo usuário criado: ${email}`, payload);
       
       // Enviar email com a senha
@@ -97,15 +98,15 @@ const blockSubscription = async (customer, payload) => {
   if (!customer || !customer.email) return;
   const email = customer.email.toLowerCase();
   try {
-    // Chargeback/Atraso -> BLOCKED (Vermelho no painel)
+    // Chargeback/Atraso -> BLOCKED (Status de bloqueio explícito)
     const user = await User.findOneAndUpdate(
       { email: email },
       { subscriptionStatus: 'blocked' },
       { new: true }
     );
     if (user) {
-        logger.info(`!!! USUÁRIO BLOQUEADO (Chargeback/Atraso): ${email} !!!`);
-        await logWebhookEvent('processed', `USUÁRIO BLOQUEADO: ${email}`, payload);
+        logger.info(`!!! USUÁRIO BLOQUEADO POR INADIMPLÊNCIA: ${email} !!!`);
+        await logWebhookEvent('processed', `USUÁRIO BLOQUEADO (Chargeback/Atraso): ${email}`, payload);
     } else {
         logger.warn(`Tentativa de bloquear usuário inexistente: ${email}`);
         await logWebhookEvent('failed', `Usuário não encontrado para bloqueio: ${email}`, payload);

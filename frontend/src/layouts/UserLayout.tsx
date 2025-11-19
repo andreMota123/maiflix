@@ -1,5 +1,5 @@
 import React, { useState, useEffect, FC } from 'react';
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Page } from '../types';
 import { HomeIcon, InfoIcon, UserGroupIcon, UserCircleIcon, BellIcon, LogoutIcon, WhatsappIcon } from '../components/Icons';
@@ -19,7 +19,7 @@ const navItemsUser: NavItem[] = [
     { page: Page.Perfil, icon: UserCircleIcon, path: '/perfil' },
 ];
 
-const UserLayout: FC = () => {
+const UserLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
     const { auth, logout } = useAuth();
     const navigate = useNavigate();
 
@@ -142,7 +142,7 @@ const UserLayout: FC = () => {
                            {newPostCount} nov{newPostCount > 1 ? 'as' : 'a'} publicaç{newPostCount > 1 ? 'ões' : 'ão'}! Clique para ver.
                         </div>
                     )}
-                    <Outlet />
+                    {children}
                 </main>
             </div>
             <BottomNav />

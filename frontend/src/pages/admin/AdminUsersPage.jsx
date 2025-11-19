@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import { Button } from '../../components/ui/Button';
 import { Input, Select } from '../../components/ui/Input';
-import { UserPlusIcon, EditIcon, TrashIcon, LockClosedIcon, ArrowUturnLeftIcon } from '../../components/Icons';
+import { UserPlusIcon, EditIcon, TrashIcon, LockClosedIcon, ArrowUturnLeftIcon, LockOpenIcon } from '../../components/Icons';
 
 const statusConfig = {
     active: { text: 'Ativo', color: 'bg-green-500/20 text-green-300' },
@@ -87,6 +88,17 @@ const AdminUsersPage = () => {
                 setUsers(users.map(u => u._id === userId ? data.user : u));
             } catch (err) {
                 alert(err.response?.data?.message || 'Falha ao restaurar usuário.');
+            }
+        }
+    }
+
+    const handleStatusChange = async (userId, newStatus) => {
+        if (window.confirm(`Deseja alterar o status para ${newStatus}?`)) {
+            try {
+                 const { data } = await api.patch(`/users/${userId}/status`, { status: newStatus });
+                 setUsers(users.map(u => u._id === userId ? data : u));
+            } catch (err) {
+                alert('Erro ao alterar status.');
             }
         }
     }
@@ -187,15 +199,12 @@ const AdminUsersPage = () => {
         }
     };
 
-    if (loading && users.length === 0) return <div className="p-6 text-center">Carregando usuários...</div>;
-    if (error) return <div className="p-6 text-center text-red-400">{error}</div>;
-
     return (
         <div className="p-4 sm:p-6 space-y-6">
             {isFormModalOpen && <UserFormModal user={currentUser} onClose={closeModal} onSave={handleSave} />}
             {isPasswordModalOpen && <ChangePasswordModal user={currentUser} onClose={closeModal} onSave={() => alert('Senha alterada com sucesso!')} />}
 
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <h2 className="text-2xl font-bold text-white">Usuários Cadastrados</h2>
                  <div className="flex items-center space-x-2">
                     <Button onClick={fetchUsers} variant="secondary" className="flex items-center space-x-2" disabled={loading}>
@@ -208,6 +217,9 @@ const AdminUsersPage = () => {
                     </Button>
                 </div>
             </div>
+            
+            {error && <div className="p-4 bg-red-900/20 border border-red-800 rounded-lg text-red-300 text-center">{error}</div>}
+            
             <div className="bg-gray-800 rounded-xl shadow-lg overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-700">
                     <thead className="bg-gray-800">
@@ -219,6 +231,11 @@ const AdminUsersPage = () => {
                         </tr>
                     </thead>
                     <tbody className="bg-gray-900/50 divide-y divide-gray-700">
+                        {users.length === 0 && !loading && (
+                            <tr>
+                                <td colSpan="4" className="px-6 py-8 text-center text-gray-400">Nenhum usuário encontrado.</td>
+                            </tr>
+                        )}
                         {users.map(user => (
                             <tr key={user._id} className={user.subscriptionStatus === 'deleted' ? 'opacity-50 bg-red-900/10' : ''}>
                                 <td className="px-6 py-4 whitespace-nowrap">
@@ -248,6 +265,11 @@ const AdminUsersPage = () => {
                                         </div>
                                     ) : (
                                         <div className="flex items-center justify-end space-x-2">
+                                             {user.subscriptionStatus === 'blocked' ? (
+                                                 <button onClick={() => handleStatusChange(user._id, 'active')} className="p-2 text-gray-400 hover:text-green-400" aria-label="Desbloquear"><LockOpenIcon className="w-5 h-5" /></button>
+                                             ) : (
+                                                 <button onClick={() => handleStatusChange(user._id, 'blocked')} className="p-2 text-gray-400 hover:text-red-400" aria-label="Bloquear"><LockClosedIcon className="w-5 h-5" /></button>
+                                             )}
                                             <button onClick={() => openFormModal(user)} className="p-2 text-gray-400 hover:text-white" aria-label="Editar"><EditIcon className="w-5 h-5" /></button>
                                             <button onClick={() => openPasswordModal(user)} className="p-2 text-gray-400 hover:text-white" aria-label="Mudar Senha"><LockClosedIcon className="w-5 h-5" /></button>
                                             <button onClick={() => handleSoftDelete(user._id)} className="p-2 text-gray-400 hover:text-pink-500" aria-label="Remover"><TrashIcon className="w-5 h-5" /></button>
