@@ -1,120 +1,136 @@
 const sharp = require('sharp');
-const ftp = require('basic-ftp');
+const Client = require('ssh2-sftp-client');
 const { v4: uuidv4 } = require('uuid');
-const { Readable } = require('stream');
 const logger = require('../utils/logger');
+const path = require('path');
 
-// Configurações do Servidor de Arquivos (cPanel)
+// Configurações do Servidor SFTP (cPanel)
 const FTP_HOST = process.env.FTP_HOST;
 const FTP_USER = process.env.FTP_USER;
 const FTP_PASSWORD = process.env.FTP_PASS;
-const FTP_SECURE = process.env.FTP_SECURE === 'true' || process.env.FTP_SECURE === true; // Use true para FTPS (recomendado)
+const FTP_PORT = process.env.FTP_PORT || 22; // Padrão SFTP é 22, mas cPanel costuma usar 2222 ou 22228
 
-// URL Base pública (Subdomínio configurado no cPanel)
-const PUBLIC_URL_BASE = 'https://files.maiflix.sublimepapelaria.com.br';
+// CAMINHO BASE NO SERVIDOR:
+// IMPORTANTE: No SFTP, você entra na raiz do servidor (/home/usuario).
+// Você precisa apontar para onde o subdomínio "files" está configurado.
+// Geralmente é: /public_html/files OU apenas /files (depende do cPanel)
+// Deixamos configurável via ENV, ou usamos um padrão comum 'public_html' se não definido.
+const REMOTE_ROOT_PATH = process.env.FTP_ROOT_PATH || '/public_html/files'; 
 
-// Pastas permitidas
+// URL Base pública
+const PUBLIC_URL_BASE = process.env.MEDIA_BASE_URL || 'https://files.maiflix.sublimepapelaria.com.br';
+
 const ALLOWED_FOLDERS = ['profiles', 'products', 'banners', 'community'];
 
 /**
- * Processa e envia uma imagem para o servidor FTP
- * @param {Object} file - Objeto do arquivo (do multer, contém .buffer)
- * @param {String} folder - Pasta de destino (profiles, products, etc.)
- * @returns {Promise<String>} - URL pública da imagem
+ * Processa e envia uma imagem via SFTP
  */
 const processImage = async (file, folder) => {
     if (!ALLOWED_FOLDERS.includes(folder)) {
         throw new Error('Pasta de destino inválida.');
     }
 
-    // Validação básica de tipo
     if (!file.mimetype.startsWith('image/')) {
         throw new Error('Apenas arquivos de imagem são permitidos.');
     }
 
     if (!FTP_HOST || !FTP_USER || !FTP_PASSWORD) {
-        logger.error('Credenciais de FTP não configuradas.');
+        logger.error('Credenciais de SFTP não configuradas.');
         throw new Error('Erro de configuração do servidor de arquivos.');
     }
 
-    const client = new ftp.Client();
-    // client.ftp.verbose = true; // Habilite para debug se necessário
+    const sftp = new Client();
 
     try {
-        // 1. Otimização da Imagem (Em Memória)
-        // Converte para WebP, redimensiona se for muito grande (max 1920px largura), qualidade 80%
+        // 1. Otimização (Sharp)
         const optimizedBuffer = await sharp(file.buffer)
             .resize({ width: 1920, withoutEnlargement: true })
             .webp({ quality: 80 })
             .toBuffer();
 
-        // 2. Gerar nome único: {folder}-{timestamp}-{uuid}.webp
+        // 2. Nomes e Caminhos
         const timestamp = new Date().toISOString().replace(/[-:.]/g, '').slice(0, 14);
         const filename = `${folder}-${timestamp}-${uuidv4().slice(0, 8)}.webp`;
-        const remotePath = `/${folder}/${filename}`; // Caminho absoluto no FTP (assumindo root do usuário FTP na pasta public_html ou subdomínio)
+        
+        // O caminho remoto completo: /home/user/public_html/files/products/imagem.webp
+        // path.posix.join garante que use barras / (linux) mesmo se o dev estiver no windows
+        const remoteDir = path.posix.join(REMOTE_ROOT_PATH, folder);
+        const remoteFilePath = path.posix.join(remoteDir, filename);
 
-        // 3. Conexão FTP
-        await client.access({
+        // 3. Conexão SFTP
+        logger.info(`Conectando SFTP em ${FTP_HOST}:${FTP_PORT}...`);
+        await sftp.connect({
             host: FTP_HOST,
-            user: FTP_USER,
+            port: parseInt(FTP_PORT),
+            username: FTP_USER,
             password: FTP_PASSWORD,
-            secure: FTP_SECURE,
+            // Aumentar timeout para evitar quedas em arquivos grandes
+            readyTimeout: 20000, 
         });
 
-        // 4. Garantir que a pasta existe
-        await client.ensureDir(`/${folder}`);
+        // 4. Garantir pasta existe (recursive true cria parents se faltar)
+        const dirExists = await sftp.exists(remoteDir);
+        if (!dirExists) {
+            logger.info(`Criando diretório remoto: ${remoteDir}`);
+            await sftp.mkdir(remoteDir, true);
+        }
 
-        // 5. Upload via Stream (Buffer -> FTP)
-        const stream = Readable.from(optimizedBuffer);
-        await client.uploadFrom(stream, remotePath);
+        // 5. Upload do Buffer
+        await sftp.put(optimizedBuffer, remoteFilePath);
 
-        // 6. Retornar URL Pública
+        // 6. Retornar URL
+        // A URL pública não inclui o '/public_html', ela aponta direto para o subdomínio
         const publicUrl = `${PUBLIC_URL_BASE}/${folder}/${filename}`;
         
-        logger.info(`Imagem enviada via FTP com sucesso: ${publicUrl}`);
+        logger.info(`Upload SFTP concluído: ${publicUrl}`);
         return publicUrl;
 
     } catch (error) {
-        logger.error('Erro ao processar/enviar imagem via FTP', { error: error.message });
-        throw new Error('Falha ao salvar a imagem no servidor remoto.');
+        logger.error('Erro no upload SFTP', { error: error.message, stack: error.stack });
+        throw new Error('Falha ao salvar imagem no servidor remoto.');
     } finally {
-        if (!client.closed) {
-            client.close();
+        // Sempre fechar conexão
+        try {
+            await sftp.end();
+        } catch (err) {
+            // Ignora erro de fechamento
         }
     }
 };
 
 /**
- * Remove uma imagem antiga do servidor FTP
- * @param {String} imageUrl - URL da imagem a ser removida
+ * Remove imagem via SFTP
  */
 const deleteImage = async (imageUrl) => {
     if (!imageUrl || !imageUrl.includes(PUBLIC_URL_BASE)) return;
 
-    const client = new ftp.Client();
+    const sftp = new Client();
 
     try {
-        // Extrai o caminho relativo (ex: /profiles/arquivo.webp)
-        const relativePath = imageUrl.split(PUBLIC_URL_BASE)[1];
-        if (!relativePath) return;
+        // url: https://files.../products/img.webp
+        // relative: /products/img.webp
+        const urlPart = imageUrl.split(PUBLIC_URL_BASE)[1];
+        if (!urlPart) return;
 
-        await client.access({
+        const remoteFilePath = path.posix.join(REMOTE_ROOT_PATH, urlPart);
+
+        await sftp.connect({
             host: FTP_HOST,
-            user: FTP_USER,
-            password: FTP_PASSWORD,
-            secure: FTP_SECURE,
+            port: parseInt(FTP_PORT),
+            username: FTP_USER,
+            password: FTP_PASSWORD
         });
 
-        await client.remove(relativePath);
-        logger.info(`Imagem removida do FTP: ${relativePath}`);
+        const exists = await sftp.exists(remoteFilePath);
+        if (exists) {
+            await sftp.delete(remoteFilePath);
+            logger.info(`Imagem deletada via SFTP: ${remoteFilePath}`);
+        }
 
     } catch (error) {
-        logger.warn('Erro ao tentar excluir imagem antiga do FTP', { error: error.message, imageUrl });
-        // Não lança erro para não interromper o fluxo principal
+        logger.warn('Erro ao deletar imagem SFTP', { error: error.message });
     } finally {
-        if (!client.closed) {
-            client.close();
-        }
+        try { await sftp.end(); } catch (e) {}
     }
 };
 
