@@ -2,27 +2,30 @@
 const nodemailer = require('nodemailer');
 const logger = require('./logger');
 
-// Detecta se é Gmail para usar a configuração otimizada
+// Detecta se é Gmail
 const isGmail = process.env.EMAIL_HOST && process.env.EMAIL_HOST.includes('gmail');
 
 let transportConfig;
 
 if (isGmail) {
-  // Estratégia 'Service': O Nodemailer gerencia portas e TLS automaticamente para o Gmail
-  // Isso evita erros manuais de porta 465 vs 587 e problemas de certificado
+  // CONFIGURAÇÃO BLINDADA PARA GMAIL NO RENDER
+  // Forçamos a porta 465 (SSL Implícito) em vez de 587 (STARTTLS).
+  // A porta 587 frequentemente dá timeout em containers devido à negociação de certificado.
   transportConfig = {
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true, // true para 465, false para outras portas
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
     }
   };
 } else {
-  // Estratégia Padrão SMTP (para GoDaddy, Hostgator, etc)
+  // Configuração Padrão para outros provedores (GoDaddy, Hostgator, etc)
   transportConfig = {
     host: process.env.EMAIL_HOST,
     port: process.env.EMAIL_PORT,
-    secure: process.env.EMAIL_PORT == 465, // true para 465, false para outras
+    secure: process.env.EMAIL_PORT == 465,
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
@@ -36,36 +39,33 @@ if (isGmail) {
 
 const transporter = nodemailer.createTransport({
   ...transportConfig,
-  // CRÍTICO PARA RENDER/DOCKER: Força IPv4. 
-  // Muitos timeouts ocorrem porque o Node tenta IPv6 onde não está disponível.
+  // CRÍTICO: Força IPv4 para evitar problemas de rede em nuvem
   family: 4, 
-  
-  // Timeouts agressivos para evitar travamentos
-  connectionTimeout: 60000, // 60 segundos
+  // Aumenta timeouts para evitar desconexão prematura
+  connectionTimeout: 60000, 
   greetingTimeout: 30000,
   socketTimeout: 60000,
-  
-  // Logs detalhados para debug
+  // Logs
   logger: true,
   debug: true
 });
 
-// Verifica a conexão SMTP ao iniciar a aplicação
+// Verifica conexão na inicialização
 transporter.verify(function (error, success) {
   if (error) {
     logger.error('Erro na conexão SMTP (E-mail):', { 
         message: error.message, 
-        code: error.code, 
-        response: error.response 
+        code: error.code,
+        host: transportConfig.host,
+        port: transportConfig.port
     });
   } else {
-    logger.info('Servidor de E-mail (SMTP) pronto para envios.');
+    logger.info(`Servidor de E-mail pronto: ${transportConfig.host}:${transportConfig.port}`);
   }
 });
 
 const sendWelcomeEmail = async (to, name, password) => {
   const subject = 'Bem-vindo(a) à Maiflix! Seu acesso chegou 🚀';
-  // Garante que não haja barra duplicada no final da URL
   const appUrl = (process.env.CORS_ORIGIN || 'https://maiflix-9kgs.onrender.com').replace(/\/$/, '');
   
   const html = `
@@ -75,9 +75,7 @@ const sendWelcomeEmail = async (to, name, password) => {
         
         <p style="font-size: 16px;">Olá, <strong>${name}</strong>!</p>
         
-        <p style="font-size: 16px;">Sua assinatura foi confirmada com sucesso. Estamos muito felizes em ter você no nosso universo criativo!</p>
-        
-        <p style="font-size: 16px;">Aqui estão seus dados exclusivos de acesso:</p>
+        <p style="font-size: 16px;">Sua conta foi criada com sucesso. Abaixo estão seus dados de acesso:</p>
         
         <div style="background-color: #1a1a2e; color: #dcdcdc; padding: 20px; border-radius: 8px; margin: 30px 0; text-align: center;">
           <p style="margin: 10px 0; font-size: 14px; color: #a7a9be;">Seu E-mail</p>
@@ -94,13 +92,12 @@ const sendWelcomeEmail = async (to, name, password) => {
         </div>
         
         <p style="font-size: 14px; color: #666; text-align: center;">
-          Recomendamos que você altere sua senha após o primeiro login para sua segurança.
+          Recomendamos alterar sua senha após o primeiro acesso.
         </p>
         
         <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;">
         
         <p style="font-size: 12px; color: #999; text-align: center;">
-          Se você não realizou esta assinatura, por favor desconsidere este e-mail.<br>
           Equipe Maiflix
         </p>
       </div>
