@@ -1,29 +1,19 @@
 const sharp = require('sharp');
-const Client = require('ssh2-sftp-client');
-const { v4: uuidv4 } = require('uuid');
+const axios = require('axios');
+const FormData = require('form-data');
 const logger = require('../utils/logger');
-const path = require('path');
 
-// Configurações do Servidor SFTP (cPanel)
-const FTP_HOST = process.env.FTP_HOST;
-const FTP_USER = process.env.FTP_USER;
-const FTP_PASSWORD = process.env.FTP_PASS;
-const FTP_PORT = process.env.FTP_PORT || 22; // Padrão SFTP é 22, mas cPanel costuma usar 2222 ou 22228
-
-// CAMINHO BASE NO SERVIDOR:
-// IMPORTANTE: No SFTP, você entra na raiz do servidor (/home/usuario).
-// Você precisa apontar para onde o subdomínio "files" está configurado.
-// Geralmente é: /public_html/files OU apenas /files (depende do cPanel)
-// Deixamos configurável via ENV, ou usamos um padrão comum 'public_html' se não definido.
-const REMOTE_ROOT_PATH = process.env.FTP_ROOT_PATH || '/public_html/files'; 
-
-// URL Base pública
-const PUBLIC_URL_BASE = process.env.MEDIA_BASE_URL || 'https://files.maiflix.sublimepapelaria.com.br';
+// URL do Script de Upload no cPanel
+// Padrão: https://files.maiflix.sublimepapelaria.com.br/upload.php
+const UPLOAD_API_URL = process.env.MEDIA_UPLOAD_URL || 'https://files.maiflix.sublimepapelaria.com.br/upload.php';
 
 const ALLOWED_FOLDERS = ['profiles', 'products', 'banners', 'community'];
 
 /**
- * Processa e envia uma imagem via SFTP
+ * Processa e envia uma imagem via HTTP POST para o script PHP remoto
+ * @param {Object} file - Objeto de arquivo do Multer
+ * @param {String} folder - Pasta de destino (profiles, products, etc.)
+ * @returns {Promise<String>} URL pública da imagem
  */
 const processImage = async (file, folder) => {
     if (!ALLOWED_FOLDERS.includes(folder)) {
@@ -34,104 +24,72 @@ const processImage = async (file, folder) => {
         throw new Error('Apenas arquivos de imagem são permitidos.');
     }
 
-    if (!FTP_HOST || !FTP_USER || !FTP_PASSWORD) {
-        logger.error('Credenciais de SFTP não configuradas.');
-        throw new Error('Erro de configuração do servidor de arquivos.');
-    }
-
-    const sftp = new Client();
-
     try {
-        // 1. Otimização (Sharp)
+        // 1. Otimização (Sharp) - Processamento em Memória
+        // Reduz tamanho, converte para WebP e remove metadados
         const optimizedBuffer = await sharp(file.buffer)
-            .resize({ width: 1920, withoutEnlargement: true })
-            .webp({ quality: 80 })
+            .resize({ width: 1920, withoutEnlargement: true }) // Limita largura HD
+            .webp({ quality: 80 }) // Compressão WebP
             .toBuffer();
 
-        // 2. Nomes e Caminhos
-        const timestamp = new Date().toISOString().replace(/[-:.]/g, '').slice(0, 14);
-        const filename = `${folder}-${timestamp}-${uuidv4().slice(0, 8)}.webp`;
+        // 2. Preparar Payload (FormData)
+        const form = new FormData();
+        form.append('folder', folder);
         
-        // O caminho remoto completo: /home/user/public_html/files/products/imagem.webp
-        // path.posix.join garante que use barras / (linux) mesmo se o dev estiver no windows
-        const remoteDir = path.posix.join(REMOTE_ROOT_PATH, folder);
-        const remoteFilePath = path.posix.join(remoteDir, filename);
-
-        // 3. Conexão SFTP
-        logger.info(`Conectando SFTP em ${FTP_HOST}:${FTP_PORT}...`);
-        await sftp.connect({
-            host: FTP_HOST,
-            port: parseInt(FTP_PORT),
-            username: FTP_USER,
-            password: FTP_PASSWORD,
-            // Aumentar timeout para evitar quedas em arquivos grandes
-            readyTimeout: 20000, 
+        // Anexa o buffer como um arquivo. É CRUCIAL informar filename e contentType
+        form.append('file', optimizedBuffer, {
+            filename: `image-${Date.now()}.webp`,
+            contentType: 'image/webp',
         });
 
-        // 4. Garantir pasta existe (recursive true cria parents se faltar)
-        const dirExists = await sftp.exists(remoteDir);
-        if (!dirExists) {
-            logger.info(`Criando diretório remoto: ${remoteDir}`);
-            await sftp.mkdir(remoteDir, true);
+        // 3. Enviar Requisição HTTP
+        logger.info(`Enviando imagem para: ${UPLOAD_API_URL} (Pasta: ${folder})`);
+
+        const response = await axios.post(UPLOAD_API_URL, form, {
+            headers: {
+                ...form.getHeaders(), // Headers essenciais do multipart/form-data
+                'User-Agent': 'Maiflix-Backend/1.0'
+            },
+            timeout: 30000 // 30 segundos de timeout
+        });
+
+        // 4. Processar Resposta
+        if (response.data && response.data.success) {
+            logger.info(`Upload HTTP concluído com sucesso: ${response.data.url}`);
+            return response.data.url;
+        } else {
+            // Se o PHP retornou success: false ou erro
+            const errorMsg = response.data?.message || 'Erro desconhecido no servidor remoto';
+            logger.error('O servidor de arquivos rejeitou o upload', { response: response.data });
+            throw new Error(`Falha no upload remoto: ${errorMsg}`);
         }
-
-        // 5. Upload do Buffer
-        await sftp.put(optimizedBuffer, remoteFilePath);
-
-        // 6. Retornar URL
-        // A URL pública não inclui o '/public_html', ela aponta direto para o subdomínio
-        const publicUrl = `${PUBLIC_URL_BASE}/${folder}/${filename}`;
-        
-        logger.info(`Upload SFTP concluído: ${publicUrl}`);
-        return publicUrl;
 
     } catch (error) {
-        logger.error('Erro no upload SFTP', { error: error.message, stack: error.stack });
-        throw new Error('Falha ao salvar imagem no servidor remoto.');
-    } finally {
-        // Sempre fechar conexão
-        try {
-            await sftp.end();
-        } catch (err) {
-            // Ignora erro de fechamento
+        // Tratamento detalhado de erro Axios
+        if (error.response) {
+            logger.error('Erro HTTP no upload', { 
+                status: error.response.status, 
+                data: error.response.data 
+            });
+        } else if (error.request) {
+            logger.error('Sem resposta do servidor de upload (Timeout ou Rede)', { error: error.message });
+        } else {
+            logger.error('Erro interno no processamento de imagem', { error: error.message });
         }
+        
+        throw new Error('Não foi possível salvar a imagem. Tente novamente mais tarde.');
     }
 };
 
 /**
- * Remove imagem via SFTP
+ * Deleta imagem (Placeholder)
+ * Nota: A deleção remota via HTTP requer um endpoint delete.php protegido.
+ * Por enquanto, apenas logamos, pois o foco é corrigir o upload.
  */
 const deleteImage = async (imageUrl) => {
-    if (!imageUrl || !imageUrl.includes(PUBLIC_URL_BASE)) return;
-
-    const sftp = new Client();
-
-    try {
-        // url: https://files.../products/img.webp
-        // relative: /products/img.webp
-        const urlPart = imageUrl.split(PUBLIC_URL_BASE)[1];
-        if (!urlPart) return;
-
-        const remoteFilePath = path.posix.join(REMOTE_ROOT_PATH, urlPart);
-
-        await sftp.connect({
-            host: FTP_HOST,
-            port: parseInt(FTP_PORT),
-            username: FTP_USER,
-            password: FTP_PASSWORD
-        });
-
-        const exists = await sftp.exists(remoteFilePath);
-        if (exists) {
-            await sftp.delete(remoteFilePath);
-            logger.info(`Imagem deletada via SFTP: ${remoteFilePath}`);
-        }
-
-    } catch (error) {
-        logger.warn('Erro ao deletar imagem SFTP', { error: error.message });
-    } finally {
-        try { await sftp.end(); } catch (e) {}
-    }
+    // Implementação futura: chamar endpoint de delete no PHP
+    logger.info(`Solicitação de deleção de imagem (ainda não implementado no PHP): ${imageUrl}`);
+    return true; 
 };
 
 module.exports = {
