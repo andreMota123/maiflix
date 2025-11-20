@@ -86,6 +86,7 @@ const AdminUsersPage = () => {
             try {
                 const { data } = await api.patch(`/users/${userId}/restore`);
                 setUsers(users.map(u => u._id === userId ? data.user : u));
+                alert('Usuário restaurado e e-mail de acesso reenviado!');
             } catch (err) {
                 alert(err.response?.data?.message || 'Falha ao restaurar usuário.');
             }
@@ -111,6 +112,7 @@ const AdminUsersPage = () => {
             role: user?.role || 'user',
             subscriptionStatus: user?.subscriptionStatus || 'active'
         });
+        const [saving, setSaving] = useState(false);
 
         const handleChange = (e) => {
             setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -118,18 +120,23 @@ const AdminUsersPage = () => {
         
         const handleSubmit = async (e) => {
             e.preventDefault();
+            setSaving(true);
             try {
                 let response;
                 if (user) { 
                     const { name, email, role, subscriptionStatus } = formData;
                     response = await api.patch(`/users/${user._id}`, { name, email, role, subscriptionStatus });
+                    alert('Dados do usuário atualizados com sucesso.');
                 } else { 
                     response = await api.post('/users', formData);
+                    alert('Usuário criado e e-mail de boas-vindas enviado com sucesso!');
                 }
                 onSave(response.data);
                 onClose();
             } catch (err) {
                 alert(err.response?.data?.message || 'Falha ao salvar usuário.');
+            } finally {
+                setSaving(false);
             }
         };
 
@@ -161,8 +168,8 @@ const AdminUsersPage = () => {
                             <option value="blocked">Bloqueado</option>
                         </Select>
                         <div className="flex justify-end space-x-2 pt-4">
-                            <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-                            <Button type="submit">Salvar</Button>
+                            <Button type="button" variant="ghost" onClick={onClose} disabled={saving}>Cancelar</Button>
+                            <Button type="submit" disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</Button>
                         </div>
                     </form>
                 </div>

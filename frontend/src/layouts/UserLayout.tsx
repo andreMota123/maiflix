@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, FC } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -19,7 +20,7 @@ const navItemsUser: NavItem[] = [
     { page: Page.Perfil, icon: UserCircleIcon, path: '/perfil' },
 ];
 
-const UserLayout: FC<{ children: React.ReactNode }> = ({ children }) => {
+const UserLayout: FC<{ children?: React.ReactNode }> = ({ children }) => {
     const { auth, logout } = useAuth();
     const navigate = useNavigate();
 

@@ -46,7 +46,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
       );
     }
 
-    return (this as any).props.children;
+    return this.props.children;
   }
 }
 
@@ -1552,7 +1552,7 @@ const App: FC = () => {
         return DEFAULT_COLORS;
     });
 
-    const ai = new GoogleGenAI({ apiKey: (process.env.API_KEY as string) || '' });
+    const ai = new GoogleGenAI({ apiKey: (process.env.API_KEY as unknown as string) || '' });
 
     const updateUsersWithGemini = async (prompt: string, currentUsers: User[]): Promise<User[] | null> => {
         try {

@@ -1,3 +1,4 @@
+
 import React, { useState, FC, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
@@ -41,10 +42,12 @@ const COLOR_VAR_MAP: Record<string, string> = {
 
 // Error Boundary Simples
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  public state = { hasError: false };
+
   constructor(props: { children: React.ReactNode }) {
     super(props);
-    this.state = { hasError: false };
   }
+
   static getDerivedStateFromError(_error: Error) {
     return { hasError: true };
   }
@@ -85,7 +88,9 @@ const App: FC = () => {
 
     useEffect(() => {
         Object.entries(colors).forEach(([key, value]) => {
-            document.documentElement.style.setProperty(COLOR_VAR_MAP[key], value);
+            if (COLOR_VAR_MAP[key]) {
+                document.documentElement.style.setProperty(COLOR_VAR_MAP[key], value);
+            }
         });
         localStorage.setItem('maiflix-colors', JSON.stringify(colors));
     }, [colors]);
