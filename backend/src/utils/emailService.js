@@ -16,12 +16,12 @@ const transporter = nodemailer.createTransport({
   socketTimeout: 30000,     // 30 segundos
   // Configurações adicionais de segurança e compatibilidade
   tls: {
-    // 'SSLv3' ajuda em alguns ambientes restritos, embora moderno prefira outros. 
-    // O importante aqui é o rejectUnauthorized false para evitar erros de certificado em proxies.
+    // 'SSLv3' ajuda em alguns ambientes restritos.
+    // rejectUnauthorized: false ajuda a evitar erros de certificado em proxies transparentes da nuvem.
     ciphers: 'SSLv3',
     rejectUnauthorized: false
   },
-  // Ativa logs detalhados para debug
+  // Ativa logs detalhados para debug no console do Render
   logger: true,
   debug: true
 });
