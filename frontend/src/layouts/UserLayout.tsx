@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, FC } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Page } from '../types';
 import { HomeIcon, InfoIcon, UserGroupIcon, UserCircleIcon, BellIcon, LogoutIcon, WhatsappIcon } from '../components/Icons';
@@ -20,7 +20,7 @@ const navItemsUser: NavItem[] = [
     { page: Page.Perfil, icon: UserCircleIcon, path: '/perfil' },
 ];
 
-const UserLayout: FC<{ children?: React.ReactNode }> = ({ children }) => {
+const UserLayout: FC = () => {
     const { auth, logout } = useAuth();
     const navigate = useNavigate();
 
@@ -125,7 +125,7 @@ const UserLayout: FC<{ children?: React.ReactNode }> = ({ children }) => {
         </aside>
     );
 
-    // Mock whatsapp link for now
+    // Mock whatsapp link for now - could be fetched from settings
     const whatsappLink = "https://wa.me/5511999999999";
 
     return (
@@ -143,7 +143,8 @@ const UserLayout: FC<{ children?: React.ReactNode }> = ({ children }) => {
                            {newPostCount} nov{newPostCount > 1 ? 'as' : 'a'} publicaç{newPostCount > 1 ? 'ões' : 'ão'}! Clique para ver.
                         </div>
                     )}
-                    {children}
+                    {/* AQUI ESTAVA O ERRO: Substituído 'children' por 'Outlet' */}
+                    <Outlet />
                 </main>
             </div>
             <BottomNav />
