@@ -10,8 +10,15 @@ const transporter = nodemailer.createTransport({
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
-  // Configurações adicionais para evitar problemas com alguns provedores SMTP rigorosos
+  // Aumenta os timeouts para evitar que o Render corte a conexão antes do Gmail responder
+  connectionTimeout: 30000, // 30 segundos
+  greetingTimeout: 30000,   // 30 segundos
+  socketTimeout: 30000,     // 30 segundos
+  // Configurações adicionais de segurança e compatibilidade
   tls: {
+    // 'SSLv3' ajuda em alguns ambientes restritos, embora moderno prefira outros. 
+    // O importante aqui é o rejectUnauthorized false para evitar erros de certificado em proxies.
+    ciphers: 'SSLv3',
     rejectUnauthorized: false
   },
   // Ativa logs detalhados para debug

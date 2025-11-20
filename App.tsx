@@ -1,4 +1,3 @@
-
 import React, { useState, FC, useRef, useEffect } from 'react';
 import { Page, User, Post, Product, Class, AdminPost, Comment, Notification, Banner } from './types';
 import { HomeIcon, UsersIcon, InfoIcon, FileIcon, UserCircleIcon, HeartIcon, CommentIcon, TrashIcon, BellIcon, WhatsappIcon, PhotoIcon, VideoIcon, LogoutIcon, EditIcon, UserPlusIcon, LockClosedIcon, LockOpenIcon, UserGroupIcon, BoxIcon, ChevronLeftIcon, ChevronRightIcon, Cog6ToothIcon, BookmarkIcon, EyeIcon, EyeSlashIcon } from './components/Icons';
@@ -17,9 +16,12 @@ interface ErrorBoundaryState {
 
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false };
+  // Explicitly declare props to resolve TS error 'Property props does not exist...'
+  readonly props: Readonly<ErrorBoundaryProps>;
 
   constructor(props: ErrorBoundaryProps) {
     super(props);
+    this.props = props;
   }
 
   static getDerivedStateFromError(_error: Error): ErrorBoundaryState {
@@ -1552,7 +1554,7 @@ const App: FC = () => {
         return DEFAULT_COLORS;
     });
 
-    const ai = new GoogleGenAI({ apiKey: (process.env.API_KEY as unknown as string) || '' });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY ? String(process.env.API_KEY) : '' });
 
     const updateUsersWithGemini = async (prompt: string, currentUsers: User[]): Promise<User[] | null> => {
         try {
