@@ -1,59 +1,45 @@
 const nodemailer = require('nodemailer');
 const logger = require('./logger');
 
-// Detecta se é Gmail
-const isGmail = process.env.EMAIL_HOST && (
-    process.env.EMAIL_HOST.includes('gmail') || 
-    process.env.EMAIL_USER.includes('gmail')
-);
-
-let transportConfig;
-
-if (isGmail) {
-  // CONFIGURAÇÃO SIMPLIFICADA E ROBUSTA PARA GMAIL
-  // O preset 'service: gmail' gerencia automaticamente as portas (465/587) e a segurança.
-  // Isso evita erros manuais de configuração de porta em ambientes de container.
-  transportConfig = {
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    }
-  };
-} else {
-  // Configuração Padrão para outros provedores (GoDaddy, Hostgator, etc)
-  transportConfig = {
-    host: process.env.EMAIL_HOST,
-    port: process.env.EMAIL_PORT,
-    secure: process.env.EMAIL_PORT == 465, // true para 465, false para outras
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-    tls: {
-      rejectUnauthorized: false // Ajuda a evitar erros de certificado em alguns provedores
-    }
-  };
-}
+// Configuração BLINDADA para Gmail no Render
+// Usamos Porta 465 (SSL Implícito) + IPv4 forçado.
+// Isso resolve 99% dos problemas de "Connection Timeout" e bloqueios de rede.
+const transportConfig = {
+  host: 'smtp.gmail.com',
+  port: 465, 
+  secure: true, // TRUE para porta 465
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+  tls: {
+    // Ajuda a evitar erros de certificado em containers
+    rejectUnauthorized: false 
+  },
+  // CRÍTICO: Força o Node.js a usar IPv4. 
+  // O Render muitas vezes falha ao tentar resolver o Gmail via IPv6.
+  family: 4, 
+};
 
 const transporter = nodemailer.createTransport({
   ...transportConfig,
-  // CRÍTICO PARA RENDER: Força IPv4. 
-  // O Node.js tenta IPv6 por padrão e falha em muitos containers, causando o Timeout.
-  family: 4, 
-  logger: true,
-  debug: true
+  logger: true, // Logs detalhados para debug
+  debug: true,  // Debug SMTP
+  // Timeouts estendidos para garantir a conexão
+  connectionTimeout: 30000, 
+  greetingTimeout: 30000,
+  socketTimeout: 30000 
 });
 
-// Verifica conexão na inicialização
+// Verifica conexão na inicialização do servidor
 transporter.verify(function (error, success) {
   if (error) {
-    logger.error('Erro na conexão SMTP (E-mail):', { 
+    logger.error('❌ Erro na conexão com Gmail (SMTP):', { 
         message: error.message, 
-        code: error.code
+        code: error.code 
     });
   } else {
-    logger.info(`Servidor de E-mail pronto (${isGmail ? 'Gmail Service' : transportConfig.host})`);
+    logger.info(`✅ Servidor de E-mail (Gmail) pronto para envios na porta 465.`);
   }
 });
 
@@ -105,12 +91,13 @@ const sendWelcomeEmail = async (to, name, password) => {
   };
 
   try {
+    logger.info(`Tentando enviar e-mail para ${to}...`);
     await transporter.sendMail(mailOptions);
-    logger.info(`E-mail de boas-vindas enviado com sucesso para ${to}`);
+    logger.info(`✅ E-mail enviado com sucesso para ${to}`);
   } catch (error) {
-    logger.error(`Falha ao enviar e-mail de boas-vindas para ${to}`, {
-      errorMessage: error.message,
-      response: error.response
+    logger.error(`❌ Falha ao enviar e-mail para ${to}`, {
+      error: error.message,
+      code: error.code
     });
   }
 };
