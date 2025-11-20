@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -18,7 +17,6 @@ import CommunityPage from './pages/user/CommunityPage';
 import ProfilePage from './pages/user/ProfilePage';
 
 // Pages - Admin
-import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import AdminFeedPage from './pages/admin/AdminFeedPage';
 import AdminUsersPage from './pages/admin/AdminUsersPage';
 import AdminProductsPage from './pages/admin/AdminProductsPage';

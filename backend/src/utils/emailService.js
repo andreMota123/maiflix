@@ -1,20 +1,20 @@
-
 const nodemailer = require('nodemailer');
 const logger = require('./logger');
 
 // Detecta se é Gmail
-const isGmail = process.env.EMAIL_HOST && process.env.EMAIL_HOST.includes('gmail');
+const isGmail = process.env.EMAIL_HOST && (
+    process.env.EMAIL_HOST.includes('gmail') || 
+    process.env.EMAIL_USER.includes('gmail')
+);
 
 let transportConfig;
 
 if (isGmail) {
-  // CONFIGURAÇÃO BLINDADA PARA GMAIL NO RENDER
-  // Forçamos a porta 465 (SSL Implícito) em vez de 587 (STARTTLS).
-  // A porta 587 frequentemente dá timeout em containers devido à negociação de certificado.
+  // CONFIGURAÇÃO SIMPLIFICADA E ROBUSTA PARA GMAIL
+  // O preset 'service: gmail' gerencia automaticamente as portas (465/587) e a segurança.
+  // Isso evita erros manuais de configuração de porta em ambientes de container.
   transportConfig = {
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true, // true para 465, false para outras portas
+    service: 'gmail',
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
@@ -25,27 +25,22 @@ if (isGmail) {
   transportConfig = {
     host: process.env.EMAIL_HOST,
     port: process.env.EMAIL_PORT,
-    secure: process.env.EMAIL_PORT == 465,
+    secure: process.env.EMAIL_PORT == 465, // true para 465, false para outras
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
     },
     tls: {
-      ciphers: 'SSLv3',
-      rejectUnauthorized: false
+      rejectUnauthorized: false // Ajuda a evitar erros de certificado em alguns provedores
     }
   };
 }
 
 const transporter = nodemailer.createTransport({
   ...transportConfig,
-  // CRÍTICO: Força IPv4 para evitar problemas de rede em nuvem
+  // CRÍTICO PARA RENDER: Força IPv4. 
+  // O Node.js tenta IPv6 por padrão e falha em muitos containers, causando o Timeout.
   family: 4, 
-  // Aumenta timeouts para evitar desconexão prematura
-  connectionTimeout: 60000, 
-  greetingTimeout: 30000,
-  socketTimeout: 60000,
-  // Logs
   logger: true,
   debug: true
 });
@@ -55,12 +50,10 @@ transporter.verify(function (error, success) {
   if (error) {
     logger.error('Erro na conexão SMTP (E-mail):', { 
         message: error.message, 
-        code: error.code,
-        host: transportConfig.host,
-        port: transportConfig.port
+        code: error.code
     });
   } else {
-    logger.info(`Servidor de E-mail pronto: ${transportConfig.host}:${transportConfig.port}`);
+    logger.info(`Servidor de E-mail pronto (${isGmail ? 'Gmail Service' : transportConfig.host})`);
   }
 });
 
