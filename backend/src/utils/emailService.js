@@ -1,45 +1,29 @@
 const nodemailer = require('nodemailer');
 const logger = require('./logger');
 
-// Configuração BLINDADA para Gmail no Render
-// Usamos Porta 465 (SSL Implícito) + IPv4 forçado.
-// Isso resolve 99% dos problemas de "Connection Timeout" e bloqueios de rede.
-const transportConfig = {
-  host: 'smtp.gmail.com',
-  port: 465, 
-  secure: true, // TRUE para porta 465
+// Configuração OTIMIZADA para Gmail no Render
+// Usamos a predefinição 'service: gmail' que ajusta portas e segurança automaticamente.
+const transporter = nodemailer.createTransport({
+  service: 'gmail', 
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
-  tls: {
-    // Ajuda a evitar erros de certificado em containers
-    rejectUnauthorized: false 
-  },
-  // CRÍTICO: Força o Node.js a usar IPv4. 
-  // O Render muitas vezes falha ao tentar resolver o Gmail via IPv6.
+  // Força IPv4 para evitar problemas de resolução de DNS no Render (causa comum de timeouts)
   family: 4, 
-};
-
-const transporter = nodemailer.createTransport({
-  ...transportConfig,
-  logger: true, // Logs detalhados para debug
-  debug: true,  // Debug SMTP
-  // Timeouts estendidos para garantir a conexão
-  connectionTimeout: 30000, 
-  greetingTimeout: 30000,
-  socketTimeout: 30000 
+  logger: true,
+  debug: true, 
 });
 
 // Verifica conexão na inicialização do servidor
 transporter.verify(function (error, success) {
   if (error) {
-    logger.error('❌ Erro na conexão com Gmail (SMTP):', { 
+    logger.error('❌ Erro de conexão com Gmail:', { 
         message: error.message, 
         code: error.code 
     });
   } else {
-    logger.info(`✅ Servidor de E-mail (Gmail) pronto para envios na porta 465.`);
+    logger.info(`✅ Servidor de E-mail (Gmail) conectado e pronto.`);
   }
 });
 
