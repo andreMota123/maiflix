@@ -21,4 +21,23 @@ api.interceptors.request.use(
   }
 );
 
+// Função auxiliar para upload de imagem
+export const uploadImage = async (file, folder) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('folder', folder);
+
+    try {
+        const response = await api.post('/media/upload', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+        return response.data.url;
+    } catch (error) {
+        console.error("Erro no upload de imagem:", error);
+        throw error;
+    }
+};
+
 export default api;

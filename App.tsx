@@ -1,7 +1,9 @@
+
 import React, { useState, FC, useRef, useEffect } from 'react';
 import { Page, User, Post, Product, Class, AdminPost, Comment, Notification, Banner } from './types';
 import { HomeIcon, UsersIcon, InfoIcon, FileIcon, UserCircleIcon, HeartIcon, CommentIcon, TrashIcon, BellIcon, WhatsappIcon, PhotoIcon, VideoIcon, LogoutIcon, EditIcon, UserPlusIcon, LockClosedIcon, LockOpenIcon, UserGroupIcon, BoxIcon, ChevronLeftIcon, ChevronRightIcon, Cog6ToothIcon, BookmarkIcon, EyeIcon, EyeSlashIcon } from './components/Icons';
 import { GoogleGenAI, Type } from "@google/genai";
+import api, { uploadImage } from './services/api'; // Importa a função de upload
 
 
 // --- ERROR BOUNDARY (para produção) ---
@@ -714,24 +716,34 @@ const AdminFeedPage: FC<{
     const [content, setContent] = useState('');
     const [media, setMedia] = useState<{ type: 'image' | 'video' | null; url: string | null }>({ type: null, url: null });
     const [editingPost, setEditingPost] = useState<AdminPost | null>(null);
+    const [isFormOpen, setIsFormOpen] = useState(false);
+    const [uploading, setUploading] = useState(false);
 
     const imageInputRef = useRef<HTMLInputElement>(null);
-    const videoInputRef = useRef<HTMLInputElement>(null);
 
     const resetForm = () => {
         setTitle('');
         setContent('');
         setMedia({ type: null, url: null });
         setEditingPost(null);
+        setIsFormOpen(false);
         if (imageInputRef.current) imageInputRef.current.value = '';
-        if (videoInputRef.current) videoInputRef.current.value = '';
     };
 
-    const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'video') => {
+    const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) {
-            const localUrl = URL.createObjectURL(file);
-            setMedia({ type, url: localUrl });
+            try {
+                setUploading(true);
+                // UPLOAD REAL para o servidor
+                const publicUrl = await uploadImage(file, 'banners') as string; // Usa pasta banners para avisos também ou cria uma 'feed'
+                setMedia({ type: 'image', url: publicUrl });
+            } catch (error) {
+                console.error("Erro ao processar arquivo", error);
+                alert("Erro ao fazer upload da imagem. Tente novamente.");
+            } finally {
+                setUploading(false);
+            }
         }
     };
 
@@ -742,21 +754,17 @@ const AdminFeedPage: FC<{
             return;
         }
 
+        const postData = {
+            title,
+            content,
+            imageUrl: media.type === 'image' ? media.url! : undefined,
+            videoUrl: media.type === 'video' ? media.url! : undefined,
+        };
+
         if (editingPost) {
-            onUpdatePost({
-                ...editingPost,
-                title,
-                content,
-                imageUrl: media.type === 'image' ? media.url! : editingPost.imageUrl,
-                videoUrl: media.type === 'video' ? media.url! : editingPost.videoUrl,
-            });
+            onUpdatePost({ ...editingPost, ...postData });
         } else {
-            onAddPost({
-                title,
-                content,
-                imageUrl: media.type === 'image' ? media.url! : undefined,
-                videoUrl: media.type === 'video' ? media.url! : undefined,
-            });
+            onAddPost(postData);
         }
         resetForm();
     };
@@ -772,76 +780,59 @@ const AdminFeedPage: FC<{
         } else {
             setMedia({ type: null, url: null });
         }
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        setIsFormOpen(true);
     };
 
-    const handleDelete = (postId: string) => {
-        if (window.confirm('Tem certeza que deseja excluir este aviso?')) {
-            onDeletePost(postId);
-        }
-    };
+    const openAddModal = () => { resetForm(); setIsFormOpen(true); };
 
     return (
         <div className="p-4 sm:p-6 space-y-6">
-            <form onSubmit={handleSubmit} className="bg-brand-surface rounded-xl p-4 space-y-4">
-                <h2 className="text-2xl font-bold text-white">{editingPost ? 'Editar Aviso' : 'Criar Novo Aviso'}</h2>
-                <Input label="Título" id="admin-post-title" type="text" value={title} onChange={(e) => setTitle(e.target.value)} required />
-                <textarea
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    placeholder="Escreva o conteúdo do aviso aqui..."
-                    className="w-full bg-brand-bg border border-brand-secondary rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-brand-primary resize-none"
-                    rows={5}
-                    required
-                />
-
-                {media.url && (
-                    <div className="mt-4 relative group">
-                        {media.type === 'image' && <img src={media.url} alt="Pré-visualização" className="rounded-lg w-full max-h-60 object-contain" />}
-                        {media.type === 'video' && <video controls src={media.url} className="rounded-lg w-full max-h-60 bg-black" />}
-                        <button type="button" onClick={() => setMedia({type: null, url: null})} className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1.5 hover:bg-black/70 opacity-50 group-hover:opacity-100 transition-opacity">
-                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
-                    </div>
-                )}
-                
-                <div className="flex justify-between items-center mt-3">
-                    <div className="flex items-center space-x-1 text-brand-text-light">
-                        <input type="file" accept="image/*" ref={imageInputRef} onChange={(e) => handleFileSelect(e, 'image')} className="hidden" />
-                        <input type="file" accept="video/*" ref={videoInputRef} onChange={(e) => handleFileSelect(e, 'video')} className="hidden" />
-
-                        <button type="button" onClick={() => imageInputRef.current?.click()} aria-label="Adicionar foto" className="p-2 hover:bg-brand-secondary/30 rounded-full"><PhotoIcon className="w-6 h-6" /></button>
-                        <button type="button" onClick={() => videoInputRef.current?.click()} aria-label="Adicionar vídeo" className="p-2 hover:bg-brand-secondary/30 rounded-full"><VideoIcon className="w-6 h-6" /></button>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                        {editingPost && (
-                            <Button type="button" variant="ghost" onClick={resetForm}>Cancelar</Button>
-                        )}
-                        <Button type="submit">{editingPost ? 'Salvar Alterações' : 'Publicar'}</Button>
+            <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-white">Gerenciamento de Avisos</h2>
+                <Button onClick={openAddModal} className="flex items-center space-x-2"><PhotoIcon className="w-5 h-5" /><span>Criar Aviso</span></Button>
+            </div>
+            {isFormOpen && (
+                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={resetForm}>
+                    <div className="bg-brand-surface rounded-xl p-6 w-full max-w-lg shadow-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                        <h2 className="text-2xl font-bold text-white mb-4">{editingPost ? 'Editar Aviso' : 'Criar Novo Aviso'}</h2>
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <Input label="Título" id="admin-post-title" type="text" value={title} onChange={(e) => setTitle(e.target.value)} required />
+                            <textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="Escreva o conteúdo do aviso aqui..." className="w-full bg-brand-bg border border-brand-secondary rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-brand-primary resize-none text-white" rows={5} required />
+                            {media.url && (
+                                <div className="mt-4 relative group">
+                                    {media.type === 'image' && <img src={media.url} alt="Pré-visualização" className="rounded-lg w-full max-h-60 object-contain bg-black" />}
+                                    <button type="button" onClick={() => setMedia({type: null, url: null})} className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1.5 hover:bg-black/70 opacity-50 group-hover:opacity-100 transition-opacity">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                    </button>
+                                </div>
+                            )}
+                            <div className="flex justify-between items-center mt-3">
+                                <div className="flex items-center space-x-2 text-brand-text-light">
+                                    <input type="file" accept="image/*" ref={imageInputRef} onChange={handleFileSelect} className="hidden" />
+                                    <Button type="button" variant="secondary" onClick={() => imageInputRef.current?.click()} disabled={uploading}>
+                                        {uploading ? 'Enviando...' : <><PhotoIcon className="w-5 h-5 mr-1 inline" /> Add Foto</>}
+                                    </Button>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <Button type="button" variant="ghost" onClick={resetForm}>Cancelar</Button>
+                                    <Button type="submit" disabled={uploading}>{editingPost ? 'Salvar' : 'Publicar'}</Button>
+                                </div>
+                            </div>
+                        </form>
                     </div>
                 </div>
-            </form>
-            
+            )}
             <div className="space-y-6">
-                <h3 className="text-xl font-bold text-white border-t border-brand-secondary pt-6">Avisos Publicados</h3>
                 {posts.map(post => (
                     <div key={post.id} className="bg-brand-surface rounded-xl p-5 shadow-lg">
                         <div className="flex justify-between items-start">
-                            <div>
-                                <h3 className="text-xl font-bold text-brand-primary">{post.title}</h3>
-                                <p className="text-xs text-brand-text-light mb-3">{post.createdAt}</p>
-                            </div>
+                            <div><h3 className="text-xl font-bold text-brand-primary">{post.title}</h3><p className="text-xs text-brand-text-light mb-3">{new Date(post.createdAt).toLocaleString('pt-BR')}</p></div>
                             <div className="flex items-center space-x-2">
-                                <button onClick={() => handleEdit(post)} className="p-2 text-brand-text-light hover:text-white" aria-label="Editar post">
-                                    <EditIcon className="w-5 h-5" />
-                                </button>
-                                <button onClick={() => handleDelete(post.id)} className="p-2 text-brand-text-light hover:text-brand-primary" aria-label="Excluir post">
-                                    <TrashIcon className="w-5 h-5" />
-                                </button>
+                                <button onClick={() => handleEdit(post)} className="p-2 text-brand-text-light hover:text-white"><EditIcon className="w-5 h-5" /></button>
+                                <button onClick={() => onDeletePost(post.id)} className="p-2 text-brand-text-light hover:text-brand-primary"><TrashIcon className="w-5 h-5" /></button>
                             </div>
                         </div>
-                        {post.imageUrl && <img src={post.imageUrl} alt={post.title} className="rounded-lg w-full max-h-[400px] object-cover my-4" />}
-                        {post.videoUrl && <video controls src={post.videoUrl} className="rounded-lg w-full max-h-[400px] bg-black my-4" />}
+                        {post.imageUrl && <img src={post.imageUrl} alt={post.title} className="rounded-lg w-full max-h-[400px] object-cover my-4 shadow-md" />}
                         <p className="text-brand-text whitespace-pre-wrap">{post.content}</p>
                     </div>
                 ))}
@@ -1013,68 +1004,50 @@ const AdminProductsPage: FC<{
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
-    const openAddModal = () => {
-        setEditingProduct(null);
-        setIsModalOpen(true);
-    };
+    const openAddModal = () => { setEditingProduct(null); setIsModalOpen(true); };
+    const openEditModal = (product: Product) => { setEditingProduct(product); setIsModalOpen(true); };
+    const handleDelete = (productId: string) => { if (window.confirm('Tem certeza que deseja excluir este produto?')) { onDeleteProduct(productId); } };
 
-    const openEditModal = (product: Product) => {
-        setEditingProduct(product);
-        setIsModalOpen(true);
-    };
-    
-    const handleDelete = (productId: string) => {
-        if (window.confirm('Tem certeza que deseja excluir este produto?')) {
-            onDeleteProduct(productId);
-        }
-    };
-    
-    const ProductFormModal: FC<{
-        isOpen: boolean;
-        onClose: () => void;
-        product: Product | null;
-    }> = ({ isOpen, onClose, product }) => {
+    const ProductFormModal: FC<{ isOpen: boolean; onClose: () => void; product: Product | null; }> = ({ isOpen, onClose, product }) => {
         const [name, setName] = useState('');
         const [description, setDescription] = useState('');
         const [thumbnailUrl, setThumbnailUrl] = useState('');
         const [fileType, setFileType] = useState<'SVG' | 'PDF' | 'STUDIO'>('SVG');
         const [downloadUrl, setDownloadUrl] = useState('');
         const [youtubeUrl, setYoutubeUrl] = useState('');
-        const [youtubeError, setYoutubeError] = useState('');
+        const [uploading, setUploading] = useState(false);
+        const fileInputRef = useRef<HTMLInputElement>(null);
 
         useEffect(() => {
             if (product) {
-                setName(product.name);
-                setDescription(product.description);
-                setThumbnailUrl(product.thumbnailUrl);
-                setFileType(product.fileType);
-                setDownloadUrl(product.downloadUrl);
-                setYoutubeUrl(product.youtubeUrl || '');
+                setName(product.name); setDescription(product.description); setThumbnailUrl(product.thumbnailUrl);
+                setFileType(product.fileType); setDownloadUrl(product.downloadUrl); setYoutubeUrl(product.youtubeUrl || '');
             } else {
-                setName('');
-                setDescription('');
-                setThumbnailUrl('');
-                setFileType('SVG');
-                setDownloadUrl('');
-                setYoutubeUrl('');
+                setName(''); setDescription(''); setThumbnailUrl(''); setFileType('SVG'); setDownloadUrl(''); setYoutubeUrl('');
             }
-            setYoutubeError('');
         }, [product, isOpen]);
+
+        const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+            const file = e.target.files?.[0];
+            if (file) {
+                try {
+                    setUploading(true);
+                    // UPLOAD REAL
+                    const publicUrl = await uploadImage(file, 'products') as string;
+                    setThumbnailUrl(publicUrl);
+                } catch (error) {
+                    alert("Erro ao carregar imagem");
+                } finally {
+                    setUploading(false);
+                }
+            }
+        };
 
         const handleSubmit = (e: React.FormEvent) => {
             e.preventDefault();
-
-            if (youtubeUrl.trim() && !isValidYoutubeUrl(youtubeUrl)) {
-                setYoutubeError('Por favor, insira uma URL do YouTube válida.');
-                return;
-            }
-
+            if (youtubeUrl.trim() && !isValidYoutubeUrl(youtubeUrl)) { alert('Por favor, insira uma URL do YouTube válida.'); return; }
             const productData = { name, description, thumbnailUrl, fileType, downloadUrl, youtubeUrl: youtubeUrl || undefined };
-            if (product) {
-                onUpdateProduct({ ...product, ...productData });
-            } else {
-                onAddProduct(productData);
-            }
+            if (product) { onUpdateProduct({ ...product, ...productData }); } else { onAddProduct(productData); }
             onClose();
         };
 
@@ -1082,42 +1055,26 @@ const AdminProductsPage: FC<{
 
         return (
             <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
-                <div className="bg-brand-surface rounded-xl p-6 w-full max-w-lg shadow-lg" onClick={(e) => e.stopPropagation()}>
+                <div className="bg-brand-surface rounded-xl p-6 w-full max-w-lg shadow-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
                     <h2 className="text-2xl font-bold text-white mb-4">{product ? 'Editar Produto' : 'Adicionar Novo Produto'}</h2>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <Input label="Nome do Produto" id="prod-name" type="text" value={name} onChange={e => setName(e.target.value)} required />
-                        <Input label="URL da Miniatura" id="prod-thumb" type="text" value={thumbnailUrl} onChange={e => setThumbnailUrl(e.target.value)} placeholder="https://exemplo.com/imagem.jpg" required />
                         <div>
-                            <label htmlFor="prod-desc" className="block text-sm font-medium text-brand-text-light mb-1">Descrição</label>
-                            <textarea id="prod-desc" value={description} onChange={e => setDescription(e.target.value)} rows={3} className="w-full px-3 py-2 bg-brand-bg border border-brand-secondary rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary" required />
+                            <label htmlFor="prod-thumb" className="block text-sm font-medium text-brand-text-light mb-1">Imagem do Produto</label>
+                            <div className="flex gap-2">
+                                <Input id="prod-thumb" type="text" value={thumbnailUrl} onChange={e => setThumbnailUrl(e.target.value)} placeholder="URL da imagem ou Upload" required className="flex-1" />
+                                <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageUpload} className="hidden" />
+                                <Button type="button" variant="secondary" onClick={() => fileInputRef.current?.click()} className="whitespace-nowrap" disabled={uploading}>
+                                    {uploading ? '...' : <><PhotoIcon className="w-5 h-5 mr-1 inline" /> Upload</>}
+                                </Button>
+                            </div>
+                            {thumbnailUrl && <img src={thumbnailUrl} alt="Preview" className="mt-2 h-20 w-20 object-cover rounded-md border border-brand-secondary" />}
                         </div>
-                        <div>
-                            <label htmlFor="prod-type" className="block text-sm font-medium text-brand-text-light mb-1">Tipo de Arquivo</label>
-                            <select id="prod-type" value={fileType} onChange={e => setFileType(e.target.value as 'SVG' | 'PDF' | 'STUDIO')} className="w-full px-3 py-2 bg-brand-bg border border-brand-secondary rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary">
-                                <option value="SVG">SVG</option>
-                                <option value="PDF">PDF</option>
-                                <option value="STUDIO">STUDIO</option>
-                            </select>
-                        </div>
+                        <div><label htmlFor="prod-desc" className="block text-sm font-medium text-brand-text-light mb-1">Descrição</label><textarea id="prod-desc" value={description} onChange={e => setDescription(e.target.value)} rows={3} className="w-full px-3 py-2 bg-brand-bg border border-brand-secondary rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary text-white" required /></div>
+                        <div><label htmlFor="prod-type" className="block text-sm font-medium text-brand-text-light mb-1">Tipo de Arquivo</label><select id="prod-type" value={fileType} onChange={e => setFileType(e.target.value as any)} className="w-full px-3 py-2 bg-brand-bg border border-brand-secondary rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary text-white"><option value="SVG">SVG</option><option value="PDF">PDF</option><option value="STUDIO">STUDIO</option></select></div>
                         <Input label="URL para Download" id="prod-download" type="text" value={downloadUrl} onChange={e => setDownloadUrl(e.target.value)} required />
-                        <div>
-                            <Input 
-                                label="URL do Vídeo do YouTube (opcional)" 
-                                id="prod-youtube" 
-                                type="text"
-                                value={youtubeUrl} 
-                                onChange={(e) => {
-                                    setYoutubeUrl(e.target.value);
-                                    if (youtubeError) setYoutubeError('');
-                                }} 
-                                placeholder="https://www.youtube.com/watch?v=..."
-                            />
-                            {youtubeError && <p className="text-sm text-red-400 mt-1">{youtubeError}</p>}
-                        </div>
-                        <div className="flex justify-end space-x-2 pt-4">
-                            <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-                            <Button type="submit">{product ? 'Salvar Alterações' : 'Adicionar'}</Button>
-                        </div>
+                        <Input label="URL do Vídeo do YouTube (opcional)" id="prod-youtube" type="text" value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} />
+                        <div className="flex justify-end space-x-2 pt-4"><Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button><Button type="submit" disabled={uploading}>{product ? 'Salvar Alterações' : 'Adicionar'}</Button></div>
                     </form>
                 </div>
             </div>
@@ -1126,33 +1083,14 @@ const AdminProductsPage: FC<{
 
     return (
         <div className="p-4 sm:p-6 space-y-6">
-            <ProductFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} product={editingProduct} />
-            <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-white">Gerenciamento de Produtos</h2>
-                <Button onClick={openAddModal} className="flex items-center space-x-2">
-                    <BoxIcon className="w-5 h-5" />
-                    <span>Adicionar Produto</span>
-                </Button>
-            </div>
+            {isModalOpen && <ProductFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} product={editingProduct} />}
+            <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-white">Gerenciamento de Produtos</h2><Button onClick={openAddModal} className="flex items-center space-x-2"><BoxIcon className="w-5 h-5" /><span>Adicionar Produto</span></Button></div>
             <div className="bg-brand-surface rounded-xl shadow-lg overflow-hidden">
                 <ul className="divide-y divide-brand-secondary">
                     {products.map(product => (
                         <li key={product.id} className="p-4 flex items-center justify-between space-x-4">
-                            <div className="flex items-center space-x-4 flex-1 min-w-0">
-                                <img src={product.thumbnailUrl} alt={product.name} className="w-16 h-16 rounded-md object-cover flex-shrink-0" />
-                                <div className="min-w-0">
-                                    <p className="font-semibold text-brand-text truncate">{product.name}</p>
-                                    <p className="text-sm text-brand-text-light truncate">{product.description}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center space-x-2 flex-shrink-0">
-                                <button onClick={() => openEditModal(product)} className="p-2 text-brand-text-light hover:text-white" aria-label="Editar produto">
-                                    <EditIcon className="w-5 h-5" />
-                                </button>
-                                <button onClick={() => handleDelete(product.id)} className="p-2 text-brand-text-light hover:text-brand-primary" aria-label="Excluir produto">
-                                    <TrashIcon className="w-5 h-5" />
-                                </button>
-                            </div>
+                            <div className="flex items-center space-x-4 flex-1 min-w-0"><img src={product.thumbnailUrl} alt={product.name} className="w-16 h-16 rounded-md object-cover flex-shrink-0 bg-black" /><div className="min-w-0"><p className="font-semibold text-brand-text truncate">{product.name}</p><p className="text-sm text-brand-text-light truncate">{product.description}</p></div></div>
+                            <div className="flex items-center space-x-2 flex-shrink-0"><button onClick={() => openEditModal(product)} className="p-2 text-brand-text-light hover:text-white"><EditIcon className="w-5 h-5" /></button><button onClick={() => handleDelete(product.id)} className="p-2 text-brand-text-light hover:text-brand-primary"><TrashIcon className="w-5 h-5" /></button></div>
                         </li>
                     ))}
                 </ul>
@@ -1173,64 +1111,47 @@ const AdminBannersPage: FC<{
     const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
     const [duration, setDuration] = useState(carouselDuration / 1000);
 
-    const openAddModal = () => {
-        setEditingBanner(null);
-        setIsModalOpen(true);
-    };
+    const openAddModal = () => { setEditingBanner(null); setIsModalOpen(true); };
+    const openEditModal = (banner: Banner) => { setEditingBanner(banner); setIsModalOpen(true); };
+    const handleDelete = (bannerId: string) => { if (window.confirm('Tem certeza que deseja excluir este banner?')) { onDeleteBanner(bannerId); } };
+    const handleDurationSave = () => { onUpdateCarouselDuration(duration * 1000); alert('Tempo de exibição atualizado!'); }
 
-    const openEditModal = (banner: Banner) => {
-        setEditingBanner(banner);
-        setIsModalOpen(true);
-    };
-    
-    const handleDelete = (bannerId: string) => {
-        if (window.confirm('Tem certeza que deseja excluir este banner?')) {
-            onDeleteBanner(bannerId);
-        }
-    };
-
-    const handleDurationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const seconds = Math.max(1, Number(e.target.value));
-        setDuration(seconds);
-    };
-    
-    const handleDurationSave = () => {
-        onUpdateCarouselDuration(duration * 1000);
-        alert('Tempo de exibição atualizado!');
-    }
-
-    const BannerFormModal: FC<{
-        isOpen: boolean;
-        onClose: () => void;
-        banner: Banner | null;
-    }> = ({ isOpen, onClose, banner }) => {
+    const BannerFormModal: FC<{ isOpen: boolean; onClose: () => void; banner: Banner | null; }> = ({ isOpen, onClose, banner }) => {
         const [title, setTitle] = useState('');
         const [subtitle, setSubtitle] = useState('');
         const [imageUrl, setImageUrl] = useState('');
         const [linkUrl, setLinkUrl] = useState('');
+        const [uploading, setUploading] = useState(false);
+        const fileInputRef = useRef<HTMLInputElement>(null);
 
         useEffect(() => {
             if (banner) {
-                setTitle(banner.title);
-                setSubtitle(banner.subtitle);
-                setImageUrl(banner.imageUrl);
-                setLinkUrl(banner.linkUrl || '');
+                setTitle(banner.title); setSubtitle(banner.subtitle); setImageUrl(banner.imageUrl); setLinkUrl(banner.linkUrl || '');
             } else {
-                setTitle('');
-                setSubtitle('');
-                setImageUrl('');
-                setLinkUrl('');
+                setTitle(''); setSubtitle(''); setImageUrl(''); setLinkUrl('');
             }
         }, [banner, isOpen]);
+
+        const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+            const file = e.target.files?.[0];
+            if (file) {
+                try {
+                    setUploading(true);
+                    // UPLOAD REAL
+                    const publicUrl = await uploadImage(file, 'banners') as string;
+                    setImageUrl(publicUrl);
+                } catch (error) {
+                    alert("Erro ao carregar imagem");
+                } finally {
+                    setUploading(false);
+                }
+            }
+        };
 
         const handleSubmit = (e: React.FormEvent) => {
             e.preventDefault();
             const bannerData = { title, subtitle, imageUrl, linkUrl: linkUrl || undefined };
-            if (banner) {
-                onUpdateBanner({ ...banner, ...bannerData });
-            } else {
-                onAddBanner(bannerData);
-            }
+            if (banner) { onUpdateBanner({ ...banner, ...bannerData }); } else { onAddBanner(bannerData); }
             onClose();
         };
 
@@ -1243,12 +1164,19 @@ const AdminBannersPage: FC<{
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <Input label="Título" id="banner-title" type="text" value={title} onChange={e => setTitle(e.target.value)} required />
                         <Input label="Subtítulo" id="banner-subtitle" type="text" value={subtitle} onChange={e => setSubtitle(e.target.value)} required />
-                        <Input label="URL da Imagem" id="banner-image" type="text" value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://exemplo.com/imagem.jpg" required />
-                        <Input label="URL do Link (opcional)" id="banner-link" type="text" value={linkUrl} onChange={e => setLinkUrl(e.target.value)} placeholder="https://exemplo.com/pagina" />
-                        <div className="flex justify-end space-x-2 pt-4">
-                            <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-                            <Button type="submit">{banner ? 'Salvar Alterações' : 'Adicionar'}</Button>
+                        <div>
+                            <label htmlFor="banner-image" className="block text-sm font-medium text-brand-text-light mb-1">Imagem do Banner</label>
+                            <div className="flex gap-2">
+                                <Input id="banner-image" type="text" value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="URL da imagem ou Upload" required className="flex-1" />
+                                <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageUpload} className="hidden" />
+                                <Button type="button" variant="secondary" onClick={() => fileInputRef.current?.click()} className="whitespace-nowrap" disabled={uploading}>
+                                    {uploading ? '...' : <><PhotoIcon className="w-5 h-5 mr-1 inline" /> Upload</>}
+                                </Button>
+                            </div>
+                            {imageUrl && <img src={imageUrl} alt="Preview" className="mt-2 h-24 w-full object-cover rounded-md border border-brand-secondary" />}
                         </div>
+                        <Input label="URL do Link (opcional)" id="banner-link" type="text" value={linkUrl} onChange={e => setLinkUrl(e.target.value)} placeholder="https://exemplo.com/pagina" />
+                        <div className="flex justify-end space-x-2 pt-4"><Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button><Button type="submit" disabled={uploading}>{banner ? 'Salvar Alterações' : 'Adicionar'}</Button></div>
                     </form>
                 </div>
             </div>
@@ -1258,44 +1186,14 @@ const AdminBannersPage: FC<{
     return (
         <div className="p-4 sm:p-6 space-y-6">
             <BannerFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} banner={editingBanner} />
-            <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-white">Gerenciamento de Banners</h2>
-                <Button onClick={openAddModal} className="flex items-center space-x-2">
-                    <PhotoIcon className="w-5 h-5" />
-                    <span>Adicionar Banner</span>
-                </Button>
-            </div>
-            
-            <div className="bg-brand-surface rounded-xl p-4">
-                <h3 className="text-xl font-bold text-white mb-3">Configurações do Carrossel</h3>
-                <div className="flex items-center space-x-4">
-                    <div className="flex-grow">
-                        <label htmlFor="carousel-duration" className="block text-sm font-medium text-brand-text-light mb-1">Tempo de exibição de cada slide (segundos)</label>
-                        <input id="carousel-duration" type="number" min="1" value={duration} onChange={handleDurationChange} className="w-full max-w-xs px-3 py-2 bg-brand-bg border border-brand-secondary rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary" />
-                    </div>
-                    <Button onClick={handleDurationSave} className="self-end">Salvar</Button>
-                </div>
-            </div>
-
+            <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-white">Gerenciamento de Banners</h2><Button onClick={openAddModal} className="flex items-center space-x-2"><PhotoIcon className="w-5 h-5" /><span>Adicionar Banner</span></Button></div>
+            <div className="bg-brand-surface rounded-xl p-4"><h3 className="text-xl font-bold text-white mb-3">Configurações do Carrossel</h3><div className="flex items-center space-x-4"><div className="flex-grow"><label htmlFor="carousel-duration" className="block text-sm font-medium text-brand-text-light mb-1">Tempo de exibição (segundos)</label><input id="carousel-duration" type="number" min="1" value={duration} onChange={(e) => setDuration(Number(e.target.value))} className="w-full max-w-xs px-3 py-2 bg-brand-bg border border-brand-secondary rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-primary" /></div><Button onClick={handleDurationSave} className="self-end">Salvar</Button></div></div>
             <div className="bg-brand-surface rounded-xl shadow-lg overflow-hidden">
                 <ul className="divide-y divide-brand-secondary">
                     {banners.map(banner => (
                         <li key={banner.id} className="p-4 flex items-center justify-between space-x-4">
-                            <div className="flex items-center space-x-4 flex-1 min-w-0">
-                                <img src={banner.imageUrl} alt={banner.title} className="w-24 h-12 rounded-md object-cover flex-shrink-0 bg-brand-bg" />
-                                <div className="min-w-0">
-                                    <p className="font-semibold text-brand-text truncate">{banner.title}</p>
-                                    <p className="text-sm text-brand-text-light truncate">{banner.subtitle}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center space-x-2 flex-shrink-0">
-                                <button onClick={() => openEditModal(banner)} className="p-2 text-brand-text-light hover:text-white" aria-label="Editar banner">
-                                    <EditIcon className="w-5 h-5" />
-                                </button>
-                                <button onClick={() => handleDelete(banner.id)} className="p-2 text-brand-text-light hover:text-brand-primary" aria-label="Excluir banner">
-                                    <TrashIcon className="w-5 h-5" />
-                                </button>
-                            </div>
+                            <div className="flex items-center space-x-4 flex-1 min-w-0"><img src={banner.imageUrl} alt={banner.title} className="w-24 h-12 rounded-md object-cover flex-shrink-0 bg-brand-bg" /><div className="min-w-0"><p className="font-semibold text-brand-text truncate">{banner.title}</p><p className="text-sm text-brand-text-light truncate">{banner.subtitle}</p></div></div>
+                            <div className="flex items-center space-x-2 flex-shrink-0"><button onClick={() => openEditModal(banner)} className="p-2 text-brand-text-light hover:text-white"><EditIcon className="w-5 h-5" /></button><button onClick={() => handleDelete(banner.id)} className="p-2 text-brand-text-light hover:text-brand-primary"><TrashIcon className="w-5 h-5" /></button></div>
                         </li>
                     ))}
                 </ul>
@@ -1383,146 +1281,38 @@ const AdminSettingsPage: FC<{
     );
 };
 
-const EditProfileModal: FC<{
-    user: User;
-    onClose: () => void;
-    onSave: (userId: string, updates: { name: string; avatarUrl: string }) => void;
-}> = ({ user, onClose, onSave }) => {
-    const [name, setName] = useState(user.name);
-    const [avatarUrl, setAvatarUrl] = useState(user.avatarUrl);
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (name.trim()) {
-            onSave(user.id, { name, avatarUrl });
-            onClose();
-        }
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
-            <div className="bg-brand-surface rounded-xl p-6 w-full max-w-md shadow-lg" onClick={(e) => e.stopPropagation()}>
-                <h2 className="text-2xl font-bold text-white mb-6">Editar Perfil</h2>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="flex justify-center mb-4">
-                        <img src={avatarUrl || `https://picsum.photos/seed/${user.id}/100/100`} alt="Avatar Preview" className="w-24 h-24 rounded-full object-cover ring-2 ring-brand-primary" />
-                    </div>
-                    <Input label="Nome Completo" id="profile-name" type="text" value={name} onChange={e => setName(e.target.value)} required />
-                    <Input label="URL do Avatar" id="profile-avatar" type="text" value={avatarUrl} onChange={e => setAvatarUrl(e.target.value)} required />
-                    
-                    <div className="flex justify-end space-x-2 pt-4">
-                        <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-                        <Button type="submit">Salvar Alterações</Button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
+// --- WRAPPERS (Para conectar com API) ---
+const AdminFeedPageWrapper = () => {
+    const [posts, setPosts] = useState<AdminPost[]>([]);
+    useEffect(() => { api.get('/admin-posts').then(res => setPosts(res.data.map((p: any) => ({ ...p, id: p._id })))); }, []);
+    const handleAdd = async (p: any) => { const res = await api.post('/admin-posts', p); setPosts(prev => [ {...res.data, id: res.data._id}, ...prev]); };
+    const handleUpdate = async (p: any) => { const res = await api.put(`/admin-posts/${p.id}`, p); setPosts(prev => prev.map(x => x.id === p.id ? {...res.data, id: res.data._id} : x)); };
+    const handleDelete = async (id: string) => { await api.delete(`/admin-posts/${id}`); setPosts(prev => prev.filter(x => x.id !== id)); };
+    return <AdminFeedPage posts={posts} onAddPost={handleAdd} onUpdatePost={handleUpdate} onDeletePost={handleDelete} />;
 };
 
-const ProfilePage: FC<{
-    currentUser: User;
-    posts: Post[];
-    classes: Class[];
-    onLogout: () => void;
-    onUpdateUser: (userId: string, updates: { name?: string, avatarUrl?: string }) => void;
-}> = ({ currentUser, posts, classes, onLogout, onUpdateUser }) => {
-    const [activeTab, setActiveTab] = useState<'posts' | 'classes'>('posts');
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-
-    const userPosts = posts.filter(p => p.author.id === currentUser.id);
-
-    return (
-        <>
-            {isEditModalOpen && <EditProfileModal user={currentUser} onClose={() => setIsEditModalOpen(false)} onSave={onUpdateUser as any} />}
-            <div className="p-4 sm:p-6">
-                <header className="bg-brand-surface rounded-xl p-6 flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-6 mb-6">
-                    <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-24 h-24 rounded-full ring-4 ring-brand-primary" />
-                    <div className="text-center sm:text-left flex-grow">
-                        <h2 className="text-3xl font-bold text-white">{currentUser.name}</h2>
-                        <p className="text-brand-text-light">{currentUser.email}</p>
-                        <span className="mt-2 inline-block px-3 py-1 text-sm font-semibold rounded-full bg-green-500/20 text-green-300">
-                            Assinatura Ativa
-                        </span>
-                    </div>
-                    <div className="flex space-x-2">
-                         <Button variant="secondary" onClick={() => setIsEditModalOpen(true)} className="flex items-center space-x-2"><EditIcon className="w-5 h-5" /><span>Editar Perfil</span></Button>
-                         <Button variant="ghost" onClick={onLogout} className="flex items-center space-x-2"><LogoutIcon className="w-5 h-5" /><span>Sair</span></Button>
-                    </div>
-                </header>
-
-                <div className="border-b border-brand-secondary mb-6">
-                    <nav className="flex space-x-4">
-                        <button onClick={() => setActiveTab('posts')} className={`px-4 py-2 font-semibold transition-colors flex items-center space-x-2 ${activeTab === 'posts' ? 'text-brand-primary border-b-2 border-brand-primary' : 'text-brand-text-light hover:text-white'}`}>
-                            <PhotoIcon className="w-5 h-5" /><span>Minhas Publicações ({userPosts.length})</span>
-                        </button>
-                        <button onClick={() => setActiveTab('classes')} className={`px-4 py-2 font-semibold transition-colors flex items-center space-x-2 ${activeTab === 'classes' ? 'text-brand-primary border-b-2 border-brand-primary' : 'text-brand-text-light hover:text-white'}`}>
-                            <BookmarkIcon className="w-5 h-5" /><span>Aulas</span>
-                        </button>
-                    </nav>
-                </div>
-
-                <main>
-                    {activeTab === 'posts' && (
-                        <div className="space-y-6">
-                            {userPosts.length > 0 ? userPosts.map(post => (
-                                <div key={post.id} className="bg-brand-surface rounded-xl p-4 sm:p-5 shadow-lg">
-                                    <div className="flex items-start justify-between">
-                                        <div className="flex items-center space-x-3">
-                                            <img src={post.author.avatarUrl} alt={post.author.name} className="w-12 h-12 rounded-full" />
-                                            <div>
-                                                <p className="font-semibold text-brand-text">{post.author.name}</p>
-                                                <p className="text-xs text-brand-text-light">{post.createdAt}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <p className="my-4 text-brand-text whitespace-pre-wrap">{post.text}</p>
-                                    <div className="my-3">
-                                        {post.imageUrl && <img src={post.imageUrl} alt="Post content" className="rounded-lg w-full max-h-[500px] object-cover" />}
-                                        {post.videoUrl && <video controls src={post.videoUrl} className="rounded-lg w-full max-h-[500px] bg-black" />}
-                                    </div>
-                                    <div className="flex items-center space-x-6 text-brand-text-light border-t border-brand-secondary mt-4 pt-3">
-                                        <div className="flex items-center space-x-2"><HeartIcon filled={post.likes.length > 0} className={`w-5 h-5 ${post.likes.length > 0 ? 'text-brand-primary' : ''}`}/><span>{post.likes.length} Curtidas</span></div>
-                                        <div className="flex items-center space-x-2"><CommentIcon className="w-5 h-5" /><span>{post.comments.length} Comentários</span></div>
-                                    </div>
-                                </div>
-                            )) : (
-                                <div className="text-center py-12 bg-brand-surface rounded-xl">
-                                    <UserCircleIcon className="w-16 h-16 mx-auto text-brand-secondary" />
-                                    <h3 className="mt-4 text-xl font-semibold">Nenhuma publicação encontrada</h3>
-                                    <p className="mt-1 text-brand-text-light">Comece a compartilhar na Comunidade!</p>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                    {activeTab === 'classes' && (
-                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {classes.map(cls => (
-                                <div key={cls.id} className="bg-brand-surface rounded-xl shadow-lg overflow-hidden flex flex-col group">
-                                    <div className="relative">
-                                        <img src={cls.thumbnailUrl} alt={cls.title} className="w-full h-40 object-cover" />
-                                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-16 h-16 text-white/80"><path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm14.024-.983a1.125 1.125 0 010 1.966l-5.603 3.113A1.125 1.125 0 019 15.113V8.887c0-.857.921-1.4 1.671-.983l5.603 3.113z" clipRule="evenodd" /></svg>
-                                        </div>
-                                    </div>
-                                    <div className="p-4 flex flex-col flex-grow">
-                                        <h3 className="text-lg font-bold text-white flex-grow mb-2">{cls.title}</h3>
-                                        <p className="text-sm text-brand-text-light mb-4 line-clamp-2">{cls.description}</p>
-
-                                        <Button onClick={() => alert('Indo para a aula...')} className="mt-auto w-full">Assistir Aula</Button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </main>
-            </div>
-        </>
-    );
+const AdminProductsPageWrapper = () => {
+    const [products, setProducts] = useState<Product[]>([]);
+    useEffect(() => { api.get('/products').then(res => setProducts(res.data.map((p: any) => ({ ...p, id: p._id })))); }, []);
+    const handleAdd = async (p: any) => { const res = await api.post('/products', p); setProducts(prev => [ {...res.data, id: res.data._id}, ...prev]); };
+    const handleUpdate = async (p: any) => { const res = await api.put(`/products/${p.id}`, p); setProducts(prev => prev.map(x => x.id === p.id ? {...res.data, id: res.data._id} : x)); };
+    const handleDelete = async (id: string) => { await api.delete(`/products/${id}`); setProducts(prev => prev.filter(x => x.id !== id)); };
+    return <AdminProductsPage products={products} onAddProduct={handleAdd} onUpdateProduct={handleUpdate} onDeleteProduct={handleDelete} />;
 };
 
+const AdminBannersPageWrapper = () => {
+    const [banners, setBanners] = useState<Banner[]>([]);
+    const [duration, setDuration] = useState(5000);
+    useEffect(() => { api.get('/banners').then(res => setBanners(res.data.map((b: any) => ({ ...b, id: b._id })))); }, []);
+    const handleAdd = async (b: any) => { const res = await api.post('/banners', b); setBanners(prev => [ {...res.data, id: res.data._id}, ...prev]); };
+    const handleUpdate = async (b: any) => { const res = await api.put(`/banners/${b.id}`, b); setBanners(prev => prev.map(x => x.id === b.id ? {...res.data, id: res.data._id} : x)); };
+    const handleDelete = async (id: string) => { await api.delete(`/banners/${id}`); setBanners(prev => prev.filter(x => x.id !== id)); };
+    const handleDuration = (d: number) => { setDuration(d); };
+    return <AdminBannersPage banners={banners} carouselDuration={duration} onAddBanner={handleAdd} onUpdateBanner={handleUpdate} onDeleteBanner={handleDelete} onUpdateCarouselDuration={handleDuration} />;
+};
 
-const App: FC = () => {
+// --- MAIN APP COMPONENT ---
+const App: React.FC = () => {
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [activePage, setActivePage] = useState<Page>(Page.Inicio);
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);

@@ -11,7 +11,7 @@ const logger = require('./src/utils/logger');
 const connectDB = require('./src/config/db');
 const setupAdmin = require('./src/utils/setupAdmin');
 const runDbMigrations = require('./src/utils/runDbMigrations');
-const { sendWelcomeEmail } = require('./src/utils/emailService'); // Importa serviço para teste
+const { sendWelcomeEmail } = require('./src/utils/emailService');
 
 // --- Import Routes ---
 const authRoutes = require('./src/routes/authRoutes');
@@ -23,36 +23,39 @@ const bannerRoutes = require('./src/routes/bannerRoutes');
 const settingRoutes = require('./src/routes/settingRoutes');
 const postRoutes = require('./src/routes/postRoutes');
 const webhookLogRoutes = require('./src/routes/webhookLogRoutes');
+const mediaRoutes = require('./src/routes/mediaRoutes'); // Nova rota de mídia
 
 const app = express();
 
 // --- Core Middlewares ---
-app.use(helmet()); 
-app.use(cors({ origin: process.env.CORS_ORIGIN })); 
+app.use(helmet({
+  crossOriginResourcePolicy: false, // Permite carregar imagens de outros domínios/localhost
+})); 
+app.use(cors({ origin: process.env.CORS_ORIGIN || '*' })); 
+
+// Serve arquivos estáticos da pasta 'public' (onde as imagens serão salvas)
+app.use(express.static(path.join(__dirname, 'public')));
 
 // To verify Kiwify's signature, we need the raw request body.
-// We configure express.json() to capture it for webhook routes.
 const captureRawBody = (req, res, buf, encoding) => {
   if (req.originalUrl.startsWith('/api/webhooks/')) {
     try {
       req.rawBody = buf.toString(encoding || 'utf8');
     } catch (e) {
       logger.error('Error capturing raw body for webhook', { error: e.message });
-      req.rawBody = ''; // Handle error appropriately
+      req.rawBody = ''; 
     }
   }
 };
 
-// Use express.json with the verify option. This MUST come before any routes that need the raw body.
 app.use(express.json({ verify: captureRawBody }));
 
 // --- API Routes ---
 app.get('/api', (req, res) => res.send('API Maiflix está no ar!'));
 
-// Rota Temporária de Teste de Email
 app.get('/api/test-email', async (req, res) => {
     try {
-        const emailDestino = process.env.EMAIL_USER; // Envia para o próprio email configurado
+        const emailDestino = process.env.EMAIL_USER; 
         await sendWelcomeEmail(emailDestino, 'Teste Admin', 'senha-teste-123');
         res.send(`E-mail de teste enviado para ${emailDestino}. Verifique sua caixa de entrada (e spam).`);
     } catch (error) {
@@ -69,17 +72,12 @@ app.use('/api/banners', bannerRoutes);
 app.use('/api/settings', settingRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/webhook-logs', webhookLogRoutes);
+app.use('/api/media', mediaRoutes); // Registra rotas de mídia
 
 // --- Serve Frontend in Production ---
 if (process.env.NODE_ENV === 'production') {
-  // Path to the frontend build directory
   const frontendDistPath = path.join(__dirname, '..', 'frontend', 'dist');
-  
-  // Serve static files from the React app
   app.use(express.static(frontendDistPath));
-
-  // The "catchall" handler: for any request that doesn't match one above,
-  // send back React's index.html file.
   app.get('*', (req, res) => {
     const indexPath = path.resolve(frontendDistPath, 'index.html');
     res.sendFile(indexPath, (err) => {
@@ -94,8 +92,6 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-
-// --- Centralized Error Handling Middleware ---
 app.use((err, req, res, next) => {
   logger.error("Erro não tratado na rota", {
     message: err.message,
@@ -109,18 +105,13 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: 'Algo deu errado no servidor!' });
 });
 
-// --- Server Initialization ---
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
   try {
-    // 1. Connect to the database
     await connectDB();
-    // 2. Run database integrity checks and migrations (e.g., fix wrong indexes)
     await runDbMigrations();
-    // 3. Setup the admin user automatically
     await setupAdmin();
-    // 4. Start listening for requests
     app.listen(PORT, () => {
       logger.info(`Servidor rodando na porta ${PORT} em modo ${process.env.NODE_ENV || 'development'}`);
     });
