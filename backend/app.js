@@ -29,12 +29,11 @@ const app = express();
 
 // --- Core Middlewares ---
 app.use(helmet({
-  crossOriginResourcePolicy: false, // Permite carregar imagens de outros domínios/localhost
+  crossOriginResourcePolicy: false, 
 })); 
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*' })); 
 
-// Serve arquivos estáticos da pasta 'public' (onde as imagens serão salvas)
-app.use(express.static(path.join(__dirname, 'public')));
+// NOTA: Não servimos mais 'public' localmente, pois as imagens vão para o cPanel via FTP.
 
 // To verify Kiwify's signature, we need the raw request body.
 const captureRawBody = (req, res, buf, encoding) => {

@@ -1,29 +1,24 @@
 const sharp = require('sharp');
-const path = require('path');
-const fs = require('fs-extra');
+const ftp = require('basic-ftp');
 const { v4: uuidv4 } = require('uuid');
+const { Readable } = require('stream');
 const logger = require('../utils/logger');
 
-// Configuração do domínio de arquivos
-// Se MEDIA_HOST não estiver definido, usa o próprio domínio da API (relativo ou configurado)
-const MEDIA_HOST = process.env.MEDIA_HOST || process.env.CORS_ORIGIN || 'https://maiflix-9kgs.onrender.com';
-const UPLOAD_DIR = path.join(__dirname, '../../public');
+// Configurações do Servidor de Arquivos (cPanel)
+const FTP_HOST = process.env.FTP_HOST;
+const FTP_USER = process.env.FTP_USER;
+const FTP_PASSWORD = process.env.FTP_PASS;
+const FTP_SECURE = process.env.FTP_SECURE === 'true' || process.env.FTP_SECURE === true; // Use true para FTPS (recomendado)
+
+// URL Base pública (Subdomínio configurado no cPanel)
+const PUBLIC_URL_BASE = 'https://files.maiflix.sublimepapelaria.com.br';
 
 // Pastas permitidas
 const ALLOWED_FOLDERS = ['profiles', 'products', 'banners', 'community'];
 
 /**
- * Garante que a pasta existe
- */
-const ensureFolder = async (folder) => {
-    const folderPath = path.join(UPLOAD_DIR, folder);
-    await fs.ensureDir(folderPath);
-    return folderPath;
-};
-
-/**
- * Processa e salva uma imagem
- * @param {Object} file - Objeto do arquivo (do multer)
+ * Processa e envia uma imagem para o servidor FTP
+ * @param {Object} file - Objeto do arquivo (do multer, contém .buffer)
  * @param {String} folder - Pasta de destino (profiles, products, etc.)
  * @returns {Promise<String>} - URL pública da imagem
  */
@@ -37,57 +32,89 @@ const processImage = async (file, folder) => {
         throw new Error('Apenas arquivos de imagem são permitidos.');
     }
 
+    if (!FTP_HOST || !FTP_USER || !FTP_PASSWORD) {
+        logger.error('Credenciais de FTP não configuradas.');
+        throw new Error('Erro de configuração do servidor de arquivos.');
+    }
+
+    const client = new ftp.Client();
+    // client.ftp.verbose = true; // Habilite para debug se necessário
+
     try {
-        await ensureFolder(folder);
-
-        // Gerar nome único: {folder}-{timestamp}-{uuid}.webp
-        const timestamp = new Date().toISOString().replace(/[-:.]/g, '').slice(0, 14);
-        const filename = `${folder}-${timestamp}-${uuidv4().slice(0, 8)}.webp`;
-        const filepath = path.join(UPLOAD_DIR, folder, filename);
-
-        // Processamento com Sharp (Otimização)
+        // 1. Otimização da Imagem (Em Memória)
         // Converte para WebP, redimensiona se for muito grande (max 1920px largura), qualidade 80%
-        await sharp(file.buffer)
+        const optimizedBuffer = await sharp(file.buffer)
             .resize({ width: 1920, withoutEnlargement: true })
             .webp({ quality: 80 })
-            .toFile(filepath);
+            .toBuffer();
 
-        // Construir URL pública
-        // Se for local/render, servimos via estático do express
-        const publicUrl = `${MEDIA_HOST}/${folder}/${filename}`;
+        // 2. Gerar nome único: {folder}-{timestamp}-{uuid}.webp
+        const timestamp = new Date().toISOString().replace(/[-:.]/g, '').slice(0, 14);
+        const filename = `${folder}-${timestamp}-${uuidv4().slice(0, 8)}.webp`;
+        const remotePath = `/${folder}/${filename}`; // Caminho absoluto no FTP (assumindo root do usuário FTP na pasta public_html ou subdomínio)
+
+        // 3. Conexão FTP
+        await client.access({
+            host: FTP_HOST,
+            user: FTP_USER,
+            password: FTP_PASSWORD,
+            secure: FTP_SECURE,
+        });
+
+        // 4. Garantir que a pasta existe
+        await client.ensureDir(`/${folder}`);
+
+        // 5. Upload via Stream (Buffer -> FTP)
+        const stream = Readable.from(optimizedBuffer);
+        await client.uploadFrom(stream, remotePath);
+
+        // 6. Retornar URL Pública
+        const publicUrl = `${PUBLIC_URL_BASE}/${folder}/${filename}`;
         
-        logger.info(`Imagem salva com sucesso: ${publicUrl}`);
+        logger.info(`Imagem enviada via FTP com sucesso: ${publicUrl}`);
         return publicUrl;
 
     } catch (error) {
-        logger.error('Erro ao processar imagem no MediaService', { error: error.message });
-        throw new Error('Falha ao processar a imagem.');
+        logger.error('Erro ao processar/enviar imagem via FTP', { error: error.message });
+        throw new Error('Falha ao salvar a imagem no servidor remoto.');
+    } finally {
+        if (!client.closed) {
+            client.close();
+        }
     }
 };
 
 /**
- * Remove uma imagem antiga (se existir e for local)
+ * Remove uma imagem antiga do servidor FTP
  * @param {String} imageUrl - URL da imagem a ser removida
  */
 const deleteImage = async (imageUrl) => {
-    if (!imageUrl) return;
+    if (!imageUrl || !imageUrl.includes(PUBLIC_URL_BASE)) return;
+
+    const client = new ftp.Client();
 
     try {
-        // Verifica se a imagem pertence ao nosso domínio
-        if (imageUrl.includes(MEDIA_HOST)) {
-            // Extrai o caminho relativo (ex: /profiles/arquivo.webp)
-            const relativePath = imageUrl.split(MEDIA_HOST)[1];
-            if (relativePath) {
-                const filePath = path.join(UPLOAD_DIR, relativePath);
-                if (await fs.pathExists(filePath)) {
-                    await fs.remove(filePath);
-                    logger.info(`Imagem antiga removida: ${filePath}`);
-                }
-            }
-        }
+        // Extrai o caminho relativo (ex: /profiles/arquivo.webp)
+        const relativePath = imageUrl.split(PUBLIC_URL_BASE)[1];
+        if (!relativePath) return;
+
+        await client.access({
+            host: FTP_HOST,
+            user: FTP_USER,
+            password: FTP_PASSWORD,
+            secure: FTP_SECURE,
+        });
+
+        await client.remove(relativePath);
+        logger.info(`Imagem removida do FTP: ${relativePath}`);
+
     } catch (error) {
-        logger.warn('Erro ao tentar excluir imagem antiga', { error: error.message });
+        logger.warn('Erro ao tentar excluir imagem antiga do FTP', { error: error.message, imageUrl });
         // Não lança erro para não interromper o fluxo principal
+    } finally {
+        if (!client.closed) {
+            client.close();
+        }
     }
 };
 
