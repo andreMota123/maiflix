@@ -305,8 +305,12 @@ const AdminProductsPage: FC<{
             e.preventDefault();
             if (youtubeUrl.trim() && !isValidYoutubeUrl(youtubeUrl)) { alert('Por favor, insira uma URL do YouTube válida.'); return; }
             const productData = { name, description, thumbnailUrl, fileType, downloadUrl, youtubeUrl: youtubeUrl || undefined };
-            if (product) { onUpdateProduct({ ...product, ...productData }); } else { onAddProduct(productData); }
-            onClose();
+            try {
+                if (product) { onUpdateProduct({ ...product, ...productData }); } else { onAddProduct(productData); }
+                onClose();
+            } catch (err) {
+                alert((err as any).response?.data?.message || 'Falha ao salvar produto.');
+            }
         };
 
         if (!isOpen) return null;
@@ -409,8 +413,12 @@ const AdminBannersPage: FC<{
         const handleSubmit = (e: React.FormEvent) => {
             e.preventDefault();
             const bannerData = { title, subtitle, imageUrl, linkUrl: linkUrl || undefined };
-            if (banner) { onUpdateBanner({ ...banner, ...bannerData }); } else { onAddBanner(bannerData); }
-            onClose();
+            try {
+                if (banner) { onUpdateBanner({ ...banner, ...bannerData }); } else { onAddBanner(bannerData); }
+                onClose();
+            } catch (err) {
+                alert((err as any).response?.data?.message || 'Falha ao salvar banner.');
+            }
         };
 
         if (!isOpen) return null;
@@ -507,7 +515,7 @@ const App: React.FC = () => {
     });
 
     useEffect(() => {
-        Object.entries(colors).forEach(([key, value]) => { document.documentElement.style.setProperty(COLOR_VAR_MAP[key], value); });
+        Object.entries(colors).forEach(([key, value]) => { document.documentElement.style.setProperty(COLOR_VAR_MAP[key], value as string); });
         localStorage.setItem('maiflix-colors', JSON.stringify(colors));
     }, [colors]);
 
