@@ -2,26 +2,50 @@
 const nodemailer = require('nodemailer');
 const logger = require('./logger');
 
+// Detecta se é Gmail para usar a configuração otimizada
+const isGmail = process.env.EMAIL_HOST && process.env.EMAIL_HOST.includes('gmail');
+
+let transportConfig;
+
+if (isGmail) {
+  // Estratégia 'Service': O Nodemailer gerencia portas e TLS automaticamente para o Gmail
+  // Isso evita erros manuais de porta 465 vs 587 e problemas de certificado
+  transportConfig = {
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    }
+  };
+} else {
+  // Estratégia Padrão SMTP (para GoDaddy, Hostgator, etc)
+  transportConfig = {
+    host: process.env.EMAIL_HOST,
+    port: process.env.EMAIL_PORT,
+    secure: process.env.EMAIL_PORT == 465, // true para 465, false para outras
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+    tls: {
+      ciphers: 'SSLv3',
+      rejectUnauthorized: false
+    }
+  };
+}
+
 const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: process.env.EMAIL_PORT,
-  secure: process.env.EMAIL_PORT == 465, // true for 465, false for other ports
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-  // Aumenta os timeouts para evitar que o Render corte a conexão antes do Gmail responder
-  connectionTimeout: 30000, // 30 segundos
-  greetingTimeout: 30000,   // 30 segundos
-  socketTimeout: 30000,     // 30 segundos
-  // Configurações adicionais de segurança e compatibilidade
-  tls: {
-    // 'SSLv3' ajuda em alguns ambientes restritos.
-    // rejectUnauthorized: false ajuda a evitar erros de certificado em proxies transparentes da nuvem.
-    ciphers: 'SSLv3',
-    rejectUnauthorized: false
-  },
-  // Ativa logs detalhados para debug no console do Render
+  ...transportConfig,
+  // CRÍTICO PARA RENDER/DOCKER: Força IPv4. 
+  // Muitos timeouts ocorrem porque o Node tenta IPv6 onde não está disponível.
+  family: 4, 
+  
+  // Timeouts agressivos para evitar travamentos
+  connectionTimeout: 60000, // 60 segundos
+  greetingTimeout: 30000,
+  socketTimeout: 60000,
+  
+  // Logs detalhados para debug
   logger: true,
   debug: true
 });
@@ -29,7 +53,11 @@ const transporter = nodemailer.createTransport({
 // Verifica a conexão SMTP ao iniciar a aplicação
 transporter.verify(function (error, success) {
   if (error) {
-    logger.error('Erro na conexão SMTP (E-mail):', { message: error.message });
+    logger.error('Erro na conexão SMTP (E-mail):', { 
+        message: error.message, 
+        code: error.code, 
+        response: error.response 
+    });
   } else {
     logger.info('Servidor de E-mail (SMTP) pronto para envios.');
   }
@@ -92,7 +120,7 @@ const sendWelcomeEmail = async (to, name, password) => {
   } catch (error) {
     logger.error(`Falha ao enviar e-mail de boas-vindas para ${to}`, {
       errorMessage: error.message,
-      // Não logamos a stack inteira para economizar espaço, a mensagem geralmente basta para SMTP
+      response: error.response
     });
   }
 };

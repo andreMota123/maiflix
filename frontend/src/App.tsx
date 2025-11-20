@@ -528,6 +528,7 @@ const CommunityPage: FC<{ currentUser: User; onAddNotification: (message: string
         if (!newPostText.trim() && !newPostMedia.url) return;
         const newPost: Post = {
             id: `p${Date.now()}`,
+            _id: `p${Date.now()}`,
             author: currentUser,
             text: newPostText,
             imageUrl: newPostMedia.type === 'image' ? newPostMedia.url! : undefined,
@@ -548,6 +549,7 @@ const CommunityPage: FC<{ currentUser: User; onAddNotification: (message: string
 
         const newComment: Comment = {
             id: `c${Date.now()}`,
+            _id: `c${Date.now()}`,
             author: currentUser,
             text: commentText,
             createdAt: 'Agora mesmo',
@@ -1539,7 +1541,7 @@ const App: FC = () => {
         const savedColors = localStorage.getItem('maiflix-colors');
         if (savedColors) {
             try {
-                const parsed: unknown = JSON.parse(savedColors as string);
+                const parsed: unknown = JSON.parse(String(savedColors));
                 if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
                     const allValuesAreStrings = Object.values(parsed as Record<string, unknown>).every(
                         (value) => typeof value === 'string'
@@ -1555,7 +1557,7 @@ const App: FC = () => {
         return DEFAULT_COLORS;
     });
 
-    const ai = new GoogleGenAI({ apiKey: (process.env.API_KEY as string) || '' });
+    const ai = new GoogleGenAI({ apiKey: String(process.env.API_KEY || '') });
 
     const updateUsersWithGemini = async (prompt: string, currentUsers: User[]): Promise<User[] | null> => {
         try {

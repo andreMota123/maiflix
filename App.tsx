@@ -1538,7 +1538,7 @@ const App: FC = () => {
         const savedColors = localStorage.getItem('maiflix-colors');
         if (savedColors) {
             try {
-                const parsed: unknown = JSON.parse(savedColors);
+                const parsed: unknown = JSON.parse(String(savedColors));
                 if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
                     const allValuesAreStrings = Object.values(parsed as Record<string, unknown>).every(
                         (value) => typeof value === 'string'
