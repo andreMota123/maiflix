@@ -1,4 +1,3 @@
-
 import React, { useState, FC, useRef, useEffect } from 'react';
 import { Page, User, Post, Product, Class, AdminPost, Comment, Notification, Banner } from './types';
 import { HomeIcon, UsersIcon, InfoIcon, FileIcon, UserCircleIcon, HeartIcon, CommentIcon, TrashIcon, BellIcon, WhatsappIcon, PhotoIcon, VideoIcon, LogoutIcon, EditIcon, UserPlusIcon, LockClosedIcon, LockOpenIcon, UserGroupIcon, BoxIcon, ChevronLeftIcon, ChevronRightIcon, Cog6ToothIcon, BookmarkIcon, EyeIcon, EyeSlashIcon } from './components/Icons';
@@ -1474,7 +1473,7 @@ const App: React.FC = () => {
         return DEFAULT_COLORS;
     });
 
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY ? String(process.env.API_KEY) : '' });
+    const ai = new GoogleGenAI({ apiKey: (process.env.API_KEY as string) });
 
     const updateUsersWithGemini = async (prompt: string, currentUsers: User[]): Promise<User[] | null> => {
         try {
