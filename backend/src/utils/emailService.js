@@ -8,33 +8,27 @@ const isGmail = process.env.EMAIL_HOST && process.env.EMAIL_HOST.includes('gmail
 let transportConfig;
 
 if (isGmail) {
-  // ESTRATÉGIA BLINDADA PARA GMAIL NO RENDER
-  // A porta 587 (STARTTLS) costuma dar timeout em containers devido à negociação de chaves.
-  // Forçamos a porta 465 (SSL Implícito) que é direta e muito mais estável.
+  // Estratégia 'Service': O Nodemailer gerencia portas e TLS automaticamente para o Gmail
+  // Isso evita erros manuais de porta 465 vs 587 e problemas de certificado
   transportConfig = {
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true, // TRUE para porta 465
+    service: 'gmail',
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
-    },
-    tls: {
-      // Previne erros de certificado em proxies
-      rejectUnauthorized: false
     }
   };
 } else {
-  // Estratégia Padrão para outros provedores (GoDaddy, Hostgator, etc)
+  // Estratégia Padrão SMTP (para GoDaddy, Hostgator, etc)
   transportConfig = {
     host: process.env.EMAIL_HOST,
     port: process.env.EMAIL_PORT,
-    secure: process.env.EMAIL_PORT == 465,
+    secure: process.env.EMAIL_PORT == 465, // true para 465, false para outras
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
     },
     tls: {
+      ciphers: 'SSLv3',
       rejectUnauthorized: false
     }
   };
@@ -42,16 +36,16 @@ if (isGmail) {
 
 const transporter = nodemailer.createTransport({
   ...transportConfig,
-  // CRÍTICO PARA RENDER: Força IPv4. 
-  // O Node tenta IPv6 por padrão, o que causa 99% dos timeouts no Render.
+  // CRÍTICO PARA RENDER/DOCKER: Força IPv4. 
+  // Muitos timeouts ocorrem porque o Node tenta IPv6 onde não está disponível.
   family: 4, 
   
-  // Timeouts estendidos para garantir que a conexão não caia se a rede oscilar
+  // Timeouts agressivos para evitar travamentos
   connectionTimeout: 60000, // 60 segundos
   greetingTimeout: 30000,
   socketTimeout: 60000,
   
-  // Logs detalhados para monitorarmos a transação SMTP
+  // Logs detalhados para debug
   logger: true,
   debug: true
 });
@@ -65,7 +59,7 @@ transporter.verify(function (error, success) {
         response: error.response 
     });
   } else {
-    logger.info(`Servidor de E-mail conectado com sucesso via ${isGmail ? 'Gmail (SSL/465)' : 'SMTP Padrão'}.`);
+    logger.info('Servidor de E-mail (SMTP) pronto para envios.');
   }
 });
 
