@@ -1,3 +1,4 @@
+
 const nodemailer = require('nodemailer');
 const logger = require('./logger');
 
@@ -12,7 +13,10 @@ const transporter = nodemailer.createTransport({
   // Configurações adicionais para evitar problemas com alguns provedores SMTP rigorosos
   tls: {
     rejectUnauthorized: false
-  }
+  },
+  // Ativa logs detalhados para debug
+  logger: true,
+  debug: true
 });
 
 // Verifica a conexão SMTP ao iniciar a aplicação

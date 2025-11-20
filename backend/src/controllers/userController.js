@@ -1,5 +1,8 @@
+
 const User = require('../models/User');
 const logger = require('../utils/logger');
+// Importa o serviço de email para enviar as credenciais
+const { sendWelcomeEmail } = require('../utils/emailService');
 
 // @desc    Get all non-admin users
 // @route   GET /api/users
@@ -49,6 +52,9 @@ exports.createUser = async (req, res, next) => {
         
         const userResponse = updatedUser.toObject();
         delete userResponse.passwordHash;
+        
+        // Envia email de boas-vindas (reativação)
+        await sendWelcomeEmail(lowercasedEmail, name.split(' ')[0], password);
 
         // Return 200 OK because it was an update/reactivation, not a creation
         return res.status(200).json(userResponse);
@@ -72,6 +78,9 @@ exports.createUser = async (req, res, next) => {
     
     const userResponse = savedUser.toObject();
     delete userResponse.passwordHash;
+
+    // Envia email de boas-vindas com as credenciais
+    await sendWelcomeEmail(lowercasedEmail, name.split(' ')[0], password);
 
     res.status(201).json(userResponse);
     
