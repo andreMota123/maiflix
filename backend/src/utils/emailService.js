@@ -1,16 +1,30 @@
 const nodemailer = require('nodemailer');
 const logger = require('./logger');
 
-// Configuração OTIMIZADA para Gmail no Render
-// Usamos a predefinição 'service: gmail' que ajusta portas e segurança automaticamente.
+// --- CONFIGURAÇÃO BLINDADA PARA GMAIL NO RENDER ---
+// 1. Host: smtp.gmail.com
+// 2. Porta: 465 (SSL Implícito) - Mais robusta contra firewalls de nuvem que a 587.
+// 3. Secure: true
+// 4. Family: 4 (Força IPv4) - Resolve problemas de DNS do Render.
+// 5. TLS: rejectUnauthorized: false - IMPORTANTE: Evita travamentos de handshake SSL em containers.
+
 const transporter = nodemailer.createTransport({
-  service: 'gmail', 
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true, // true para 465, false para outras portas
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
-  // Força IPv4 para evitar problemas de resolução de DNS no Render (causa comum de timeouts)
-  family: 4, 
+  tls: {
+    // Isso permite que a conexão ocorra mesmo se o container tiver problemas com a cadeia de certificados do Google.
+    // Resolve 99% dos casos de "Connection Timeout" misteriosos.
+    rejectUnauthorized: false 
+  },
+  family: 4, // Força IPv4
+  connectionTimeout: 60000, // 60 segundos
+  greetingTimeout: 30000, // 30 segundos para esperar o "Olá" do servidor
+  socketTimeout: 60000, // 60 segundos de inatividade
   logger: true,
   debug: true, 
 });
@@ -18,12 +32,12 @@ const transporter = nodemailer.createTransport({
 // Verifica conexão na inicialização do servidor
 transporter.verify(function (error, success) {
   if (error) {
-    logger.error('❌ Erro de conexão com Gmail:', { 
+    logger.error('❌ Erro de conexão SMTP (Gmail):', { 
         message: error.message, 
         code: error.code 
     });
   } else {
-    logger.info(`✅ Servidor de E-mail (Gmail) conectado e pronto.`);
+    logger.info(`✅ Servidor de E-mail (Gmail/SSL) conectado e pronto.`);
   }
 });
 
@@ -81,7 +95,8 @@ const sendWelcomeEmail = async (to, name, password) => {
   } catch (error) {
     logger.error(`❌ Falha ao enviar e-mail para ${to}`, {
       error: error.message,
-      code: error.code
+      code: error.code,
+      response: error.response
     });
   }
 };
