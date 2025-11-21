@@ -4,16 +4,12 @@ const FormData = require('form-data');
 const logger = require('../utils/logger');
 
 // URL do Script de Upload no cPanel
-// Padrão: https://files.maiflix.sublimepapelaria.com.br/upload.php
 const UPLOAD_API_URL = process.env.MEDIA_UPLOAD_URL || 'https://files.maiflix.sublimepapelaria.com.br/upload.php';
 
 const ALLOWED_FOLDERS = ['profiles', 'products', 'banners', 'community'];
 
 /**
  * Processa e envia uma imagem via HTTP POST para o script PHP remoto
- * @param {Object} file - Objeto de arquivo do Multer
- * @param {String} folder - Pasta de destino (profiles, products, etc.)
- * @returns {Promise<String>} URL pública da imagem
  */
 const processImage = async (file, folder) => {
     if (!ALLOWED_FOLDERS.includes(folder)) {
@@ -26,7 +22,6 @@ const processImage = async (file, folder) => {
 
     try {
         // 1. Otimização (Sharp) - Processamento em Memória
-        // Reduz tamanho, converte para WebP e remove metadados
         const optimizedBuffer = await sharp(file.buffer)
             .resize({ width: 1920, withoutEnlargement: true }) // Limita largura HD
             .webp({ quality: 80 }) // Compressão WebP
@@ -36,7 +31,7 @@ const processImage = async (file, folder) => {
         const form = new FormData();
         form.append('folder', folder);
         
-        // Anexa o buffer como um arquivo. É CRUCIAL informar filename e contentType
+        // Anexa o buffer como um arquivo
         form.append('file', optimizedBuffer, {
             filename: `image-${Date.now()}.webp`,
             contentType: 'image/webp',
@@ -58,37 +53,25 @@ const processImage = async (file, folder) => {
             logger.info(`Upload HTTP concluído com sucesso: ${response.data.url}`);
             return response.data.url;
         } else {
-            // Se o PHP retornou success: false ou erro
             const errorMsg = response.data?.message || 'Erro desconhecido no servidor remoto';
             logger.error('O servidor de arquivos rejeitou o upload', { response: response.data });
             throw new Error(`Falha no upload remoto: ${errorMsg}`);
         }
 
     } catch (error) {
-        // Tratamento detalhado de erro Axios
         if (error.response) {
-            logger.error('Erro HTTP no upload', { 
-                status: error.response.status, 
-                data: error.response.data 
-            });
+            logger.error('Erro HTTP no upload', { status: error.response.status, data: error.response.data });
         } else if (error.request) {
             logger.error('Sem resposta do servidor de upload (Timeout ou Rede)', { error: error.message });
         } else {
             logger.error('Erro interno no processamento de imagem', { error: error.message });
         }
-        
         throw new Error('Não foi possível salvar a imagem. Tente novamente mais tarde.');
     }
 };
 
-/**
- * Deleta imagem (Placeholder)
- * Nota: A deleção remota via HTTP requer um endpoint delete.php protegido.
- * Por enquanto, apenas logamos, pois o foco é corrigir o upload.
- */
 const deleteImage = async (imageUrl) => {
-    // Implementação futura: chamar endpoint de delete no PHP
-    logger.info(`Solicitação de deleção de imagem (ainda não implementado no PHP): ${imageUrl}`);
+    logger.info(`Solicitação de deleção de imagem (placeholder): ${imageUrl}`);
     return true; 
 };
 
