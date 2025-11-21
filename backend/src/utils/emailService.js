@@ -1,21 +1,21 @@
 const nodemailer = require('nodemailer');
 const logger = require('./logger');
 
-// --- CONFIGURAÇÃO PARA PORTA 587 (STARTTLS) ---
-// Para porta 587, secure DEVE ser false.
-// Adicionamos ciphers: 'SSLv3' e rejectUnauthorized: false para máxima compatibilidade.
+// --- CONFIGURAÇÃO PARA BREVO (Sendinblue) SMTP Relay ---
+// Host: smtp-relay.brevo.com
+// Porta: 587
+// Secure: false
 
 const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+  host: process.env.EMAIL_HOST || 'smtp-relay.brevo.com',
   port: Number(process.env.EMAIL_PORT) || 587,
-  secure: false, // <--- MUITO IMPORTANTE: Para porta 587, isso deve ser FALSE
+  secure: false, // IMPORTANTE: Para porta 587 do Brevo, isso é false
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    user: process.env.EMAIL_USER, // Seu email de login do Brevo
+    pass: process.env.EMAIL_PASS, // A chave API (Master Password) do SMTP
   },
   tls: {
-    ciphers: 'SSLv3',
-    rejectUnauthorized: false
+    rejectUnauthorized: false // Evita erros de certificado em containers/nuvem
   },
   family: 4, // Força IPv4 para evitar timeout de rede no Render
   connectionTimeout: 60000, // 60 segundos
@@ -27,14 +27,14 @@ const transporter = nodemailer.createTransport({
 
 transporter.verify(function (error, success) {
   if (error) {
-    logger.error('❌ Erro de conexão SMTP:', { 
+    logger.error('❌ Erro de conexão SMTP (Brevo):', { 
         message: error.message, 
         code: error.code,
         host: process.env.EMAIL_HOST,
         port: process.env.EMAIL_PORT
     });
   } else {
-    logger.info(`✅ Servidor de E-mail pronto na porta ${process.env.EMAIL_PORT || 587} (STARTTLS)!`);
+    logger.info(`✅ Servidor de E-mail (Brevo) pronto na porta ${process.env.EMAIL_PORT || 587}!`);
   }
 });
 
