@@ -1,26 +1,24 @@
 const nodemailer = require('nodemailer');
 const logger = require('./logger');
 
-// --- CONFIGURAÇÃO BLINDADA PARA GMAIL NO RENDER ---
-// 1. Host: smtp.gmail.com
-// 2. Porta: 465 (SSL Implícito)
-// 3. Secure: true
-// 4. Family: 4 (Força IPv4)
-// 5. TLS: rejectUnauthorized: false
+// --- CONFIGURAÇÃO PARA PORTA 587 (STARTTLS) ---
+// Para porta 587, secure DEVE ser false.
+// Adicionamos ciphers: 'SSLv3' e rejectUnauthorized: false para máxima compatibilidade.
 
 const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 465,
-  secure: true, // true para 465
+  host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+  port: Number(process.env.EMAIL_PORT) || 587,
+  secure: false, // <--- MUITO IMPORTANTE: Para porta 587, isso deve ser FALSE
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
   tls: {
-    rejectUnauthorized: false 
+    ciphers: 'SSLv3',
+    rejectUnauthorized: false
   },
-  family: 4, // Força IPv4
-  connectionTimeout: 60000, 
+  family: 4, // Força IPv4 para evitar timeout de rede no Render
+  connectionTimeout: 60000, // 60 segundos
   greetingTimeout: 30000,
   socketTimeout: 60000,
   logger: true,
@@ -29,12 +27,14 @@ const transporter = nodemailer.createTransport({
 
 transporter.verify(function (error, success) {
   if (error) {
-    logger.error('❌ Erro de conexão SMTP (Gmail):', { 
+    logger.error('❌ Erro de conexão SMTP:', { 
         message: error.message, 
-        code: error.code 
+        code: error.code,
+        host: process.env.EMAIL_HOST,
+        port: process.env.EMAIL_PORT
     });
   } else {
-    logger.info(`✅ Servidor de E-mail (Gmail/SSL) conectado e pronto.`);
+    logger.info(`✅ Servidor de E-mail pronto na porta ${process.env.EMAIL_PORT || 587} (STARTTLS)!`);
   }
 });
 
