@@ -42,4 +42,22 @@ export const uploadImage = async (file, folder) => {
     }
 };
 
+// NOVA FUNÇÃO: Busca a URL assinada (temporária) para um arquivo privado
+export const getSignedUrl = async (gcsPath) => {
+    if (!gcsPath) return null;
+    if (gcsPath.startsWith('http')) return gcsPath; // Se já for link externo, retorna direto
+
+    try {
+        // Codifica todo o caminho (incluindo barras) para garantir que caracteres especiais
+        // sejam tratados corretamente na URL da API.
+        const encodedPath = encodeURIComponent(gcsPath);
+        
+        const response = await api.get(`/media/image/${encodedPath}`);
+        return response.data.url;
+    } catch (error) {
+        console.error(`Erro ao obter URL assinada para ${gcsPath}`, error);
+        return null; 
+    }
+};
+
 export default api;
