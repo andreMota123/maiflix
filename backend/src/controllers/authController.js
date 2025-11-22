@@ -1,5 +1,18 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+const { getSignedUrl } = require('../services/mediaService');
+
+// Helper para URL assinada
+const populateUserUrl = async (user) => {
+  if (!user) return null;
+  const u = user.toObject ? user.toObject() : user;
+  if (u.avatarUrl && !u.avatarUrl.startsWith('http')) {
+    u.avatarUrl = await getSignedUrl(u.avatarUrl);
+  }
+  // Remove hash de senha por segurança
+  delete u.passwordHash;
+  return u;
+};
 
 exports.login = async (req, res, next) => {
   const { email, password } = req.body;
@@ -29,9 +42,7 @@ exports.login = async (req, res, next) => {
       expiresIn: '7d',
     });
     
-    // Explicitly exclude password hash from the returned user object
-    const userResponse = user.toObject();
-    delete userResponse.passwordHash;
+    const userResponse = await populateUserUrl(user);
 
     res.status(200).json({
       token,
@@ -55,9 +66,11 @@ exports.checkSubscription = async (req, res, next) => {
         return res.status(403).json({ message: 'Assinatura inativa.', isSubscribed: false });
     }
 
+    const userResponse = await populateUserUrl(user);
+
     res.status(200).json({
       isSubscribed: true,
-      user,
+      user: userResponse,
     });
   } catch (error) {
     next(error);

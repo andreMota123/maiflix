@@ -1,81 +1,104 @@
+const { bucket } = require('../config/gcs');
 const sharp = require('sharp');
-const axios = require('axios');
-const FormData = require('form-data');
+const { v4: uuidv4 } = require('uuid');
+const path = require('path');
 const logger = require('../utils/logger');
 
-// URL do Script de Upload no cPanel
-const UPLOAD_API_URL = process.env.MEDIA_UPLOAD_URL || 'https://files.maiflix.sublimepapelaria.com.br/upload.php';
-
-const ALLOWED_FOLDERS = ['profiles', 'products', 'banners', 'community'];
-
 /**
- * Processa e envia uma imagem via HTTP POST para o script PHP remoto
+ * Gera uma URL assinada (Signed URL) para acesso temporário a um arquivo privado
+ * @param {string} gcsPath - O caminho/nome do arquivo no bucket
+ * @returns {Promise<string>} - A URL pública temporária
  */
-const processImage = async (file, folder) => {
-    if (!ALLOWED_FOLDERS.includes(folder)) {
-        throw new Error('Pasta de destino inválida.');
+const getSignedUrl = async (gcsPath) => {
+  if (!gcsPath || gcsPath.startsWith('http')) return gcsPath; // Se já for URL (legado), retorna ela
+
+  try {
+    if (!bucket) throw new Error('Bucket GCS não configurado.');
+
+    const file = bucket.file(gcsPath);
+    const [exists] = await file.exists();
+
+    if (!exists) {
+      // Retorna uma imagem placeholder ou null se o arquivo não existir
+      return null; 
     }
 
-    if (!file.mimetype.startsWith('image/')) {
-        throw new Error('Apenas arquivos de imagem são permitidos.');
-    }
+    const [url] = await file.getSignedUrl({
+      version: 'v4',
+      action: 'read',
+      expires: Date.now() + 60 * 60 * 1000, // 1 hora de validade
+    });
 
-    try {
-        // 1. Otimização (Sharp) - Processamento em Memória
-        const optimizedBuffer = await sharp(file.buffer)
-            .resize({ width: 1920, withoutEnlargement: true }) // Limita largura HD
-            .webp({ quality: 80 }) // Compressão WebP
-            .toBuffer();
-
-        // 2. Preparar Payload (FormData)
-        const form = new FormData();
-        form.append('folder', folder);
-        
-        // Anexa o buffer como um arquivo
-        form.append('file', optimizedBuffer, {
-            filename: `image-${Date.now()}.webp`,
-            contentType: 'image/webp',
-        });
-
-        // 3. Enviar Requisição HTTP
-        logger.info(`Enviando imagem para: ${UPLOAD_API_URL} (Pasta: ${folder})`);
-
-        const response = await axios.post(UPLOAD_API_URL, form, {
-            headers: {
-                ...form.getHeaders(), // Headers essenciais do multipart/form-data
-                'User-Agent': 'Maiflix-Backend/1.0'
-            },
-            timeout: 30000 // 30 segundos de timeout
-        });
-
-        // 4. Processar Resposta
-        if (response.data && response.data.success) {
-            logger.info(`Upload HTTP concluído com sucesso: ${response.data.url}`);
-            return response.data.url;
-        } else {
-            const errorMsg = response.data?.message || 'Erro desconhecido no servidor remoto';
-            logger.error('O servidor de arquivos rejeitou o upload', { response: response.data });
-            throw new Error(`Falha no upload remoto: ${errorMsg}`);
-        }
-
-    } catch (error) {
-        if (error.response) {
-            logger.error('Erro HTTP no upload', { status: error.response.status, data: error.response.data });
-        } else if (error.request) {
-            logger.error('Sem resposta do servidor de upload (Timeout ou Rede)', { error: error.message });
-        } else {
-            logger.error('Erro interno no processamento de imagem', { error: error.message });
-        }
-        throw new Error('Não foi possível salvar a imagem. Tente novamente mais tarde.');
-    }
+    return url;
+  } catch (error) {
+    logger.error(`Erro ao gerar URL assinada para ${gcsPath}:`, error.message);
+    return null;
+  }
 };
 
-const deleteImage = async (imageUrl) => {
-    logger.info(`Solicitação de deleção de imagem (placeholder): ${imageUrl}`);
-    return true; 
+/**
+ * Processa a imagem (Sharp) e faz upload para o Google Cloud Storage
+ * @param {Object} file - Objeto file do Multer
+ * @param {string} folder - Pasta lógica (apenas para log, o bucket é flat ou usa prefixos)
+ * @returns {Promise<{gcsPath: string, url: string}>}
+ */
+const processImage = async (file, folder = 'uploads') => {
+  if (!bucket) throw new Error('Serviço de Storage indisponível.');
+  
+  if (!file) throw new Error('Nenhum arquivo enviado.');
+
+  try {
+    // 1. Otimização na memória com Sharp (converte para WebP)
+    const optimizedBuffer = await sharp(file.buffer)
+      .resize({ width: 1920, withoutEnlargement: true })
+      .webp({ quality: 80 })
+      .toBuffer();
+
+    // 2. Gerar nome único
+    const timestamp = Date.now();
+    const safeName = path.parse(file.originalname).name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    const fileName = `${folder}/${timestamp}-${safeName}-${uuidv4()}.webp`;
+    const fileUpload = bucket.file(fileName);
+
+    // 3. Upload Stream para o GCS
+    await fileUpload.save(optimizedBuffer, {
+      metadata: {
+        contentType: 'image/webp',
+      },
+      resumable: false // Melhor para arquivos pequenos/médios em serverless
+    });
+
+    logger.info(`Arquivo salvo no GCS: ${fileName}`);
+
+    // 4. Gerar URL assinada imediata para o frontend visualizar agora
+    const signedUrl = await getSignedUrl(fileName);
+
+    return {
+      gcsPath: fileName, // O que será salvo no MongoDB
+      url: signedUrl     // Para preview imediato no frontend
+    };
+
+  } catch (error) {
+    logger.error('Erro no upload para GCS:', { error: error.message });
+    throw new Error('Falha ao processar e salvar imagem.');
+  }
+};
+
+/**
+ * Remove um arquivo do bucket
+ */
+const deleteImage = async (gcsPath) => {
+  if (!gcsPath || !bucket) return;
+  try {
+    await bucket.file(gcsPath).delete();
+    logger.info(`Arquivo removido do GCS: ${gcsPath}`);
+  } catch (error) {
+    logger.warn(`Falha ao remover arquivo ${gcsPath}:`, error.message);
+  }
 };
 
 module.exports = {
-    processImage,
-    deleteImage
+  processImage,
+  getSignedUrl,
+  deleteImage
 };

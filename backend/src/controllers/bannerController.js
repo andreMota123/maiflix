@@ -1,33 +1,36 @@
 const Banner = require('../models/Banner');
+const { getSignedUrl } = require('../services/mediaService');
 
-// @desc    Get all banners
-// @route   GET /api/banners
-// @access  Private
+const populateBannerUrl = async (banner) => {
+  if (!banner) return null;
+  const b = banner.toObject ? banner.toObject() : banner;
+  if (b.imageUrl && !b.imageUrl.startsWith('http')) {
+    b.imageUrl = await getSignedUrl(b.imageUrl);
+  }
+  return b;
+};
+
 exports.getAllBanners = async (req, res, next) => {
   try {
     const banners = await Banner.find().sort({ createdAt: -1 });
-    res.status(200).json(banners);
+    const bannersWithUrls = await Promise.all(banners.map(populateBannerUrl));
+    res.status(200).json(bannersWithUrls);
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Create a new banner
-// @route   POST /api/banners
-// @access  Private/Admin
 exports.createBanner = async (req, res, next) => {
   const { title, subtitle, imageUrl, linkUrl } = req.body;
   try {
     const banner = await Banner.create({ title, subtitle, imageUrl, linkUrl });
-    res.status(201).json(banner);
+    const bannerWithUrl = await populateBannerUrl(banner);
+    res.status(201).json(bannerWithUrl);
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Update a banner
-// @route   PUT /api/banners/:id
-// @access  Private/Admin
 exports.updateBanner = async (req, res, next) => {
   try {
     const banner = await Banner.findByIdAndUpdate(req.params.id, req.body, {
@@ -37,15 +40,13 @@ exports.updateBanner = async (req, res, next) => {
     if (!banner) {
       return res.status(404).json({ message: 'Banner não encontrado.' });
     }
-    res.status(200).json(banner);
+    const bannerWithUrl = await populateBannerUrl(banner);
+    res.status(200).json(bannerWithUrl);
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Delete a banner
-// @route   DELETE /api/banners/:id
-// @access  Private/Admin
 exports.deleteBanner = async (req, res, next) => {
   try {
     const banner = await Banner.findById(req.params.id);

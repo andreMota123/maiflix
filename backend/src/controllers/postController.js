@@ -1,49 +1,71 @@
 const Post = require('../models/Post');
+const { getSignedUrl } = require('../services/mediaService');
 
-// @desc    Get all community posts
-// @route   GET /api/posts
-// @access  Private
+// Função recursiva para processar posts e comentários
+const populatePostUrls = async (post) => {
+  if (!post) return null;
+  const p = post.toObject ? post.toObject() : post;
+
+  // URL da imagem do Post
+  if (p.imageUrl && !p.imageUrl.startsWith('http')) {
+    p.imageUrl = await getSignedUrl(p.imageUrl);
+  }
+
+  // Avatar do Autor do Post
+  if (p.author && p.author.avatarUrl && !p.author.avatarUrl.startsWith('http')) {
+    p.author.avatarUrl = await getSignedUrl(p.author.avatarUrl);
+  }
+
+  // Avatares nos comentários
+  if (p.comments && p.comments.length > 0) {
+    p.comments = await Promise.all(p.comments.map(async (c) => {
+      if (c.author && c.author.avatarUrl && !c.author.avatarUrl.startsWith('http')) {
+        c.author.avatarUrl = await getSignedUrl(c.author.avatarUrl);
+      }
+      return c;
+    }));
+  }
+
+  return p;
+};
+
 exports.getAllPosts = async (req, res, next) => {
   try {
     const posts = await Post.find()
       .populate('author', 'name avatarUrl')
       .populate('comments.author', 'name avatarUrl')
       .sort({ createdAt: -1 });
-    res.status(200).json(posts);
+    
+    const postsWithUrls = await Promise.all(posts.map(populatePostUrls));
+    res.status(200).json(postsWithUrls);
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Create a new post
-// @route   POST /api/posts
-// @access  Private
 exports.createPost = async (req, res, next) => {
   const { text, imageUrl, videoUrl } = req.body;
   try {
     let post = await Post.create({
       text,
-      imageUrl,
+      imageUrl, // Aqui salvamos o gcsPath vindo do frontend
       videoUrl,
       author: req.user._id,
     });
     post = await post.populate('author', 'name avatarUrl');
-    res.status(201).json(post);
+    const postWithUrl = await populatePostUrls(post);
+    res.status(201).json(postWithUrl);
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Delete a post
-// @route   DELETE /api/posts/:id
-// @access  Private
 exports.deletePost = async (req, res, next) => {
   try {
     const post = await Post.findById(req.params.id);
     if (!post) {
       return res.status(404).json({ message: 'Post não encontrado.' });
     }
-    // Check if user is the author or an admin
     if (post.author.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Ação não autorizada.' });
     }
@@ -54,9 +76,6 @@ exports.deletePost = async (req, res, next) => {
   }
 };
 
-// @desc    Like/Unlike a post
-// @route   PUT /api/posts/:id/like
-// @access  Private
 exports.likePost = async (req, res, next) => {
   try {
     const post = await Post.findById(req.params.id);
@@ -65,10 +84,8 @@ exports.likePost = async (req, res, next) => {
     }
     const userId = req.user._id.toString();
     if (post.likes.map(id => id.toString()).includes(userId)) {
-      // Unlike
       post.likes.pull(req.user._id);
     } else {
-      // Like
       post.likes.push(req.user._id);
     }
     await post.save();
@@ -78,9 +95,6 @@ exports.likePost = async (req, res, next) => {
   }
 };
 
-// @desc    Add a comment to a post
-// @route   POST /api/posts/:id/comment
-// @access  Private
 exports.addComment = async (req, res, next) => {
   const { text } = req.body;
   try {
@@ -94,14 +108,20 @@ exports.addComment = async (req, res, next) => {
     };
     post.comments.push(newComment);
     await post.save();
-    const createdComment = post.comments[post.comments.length - 1];
     
-    // Manually populate author for the new comment to return it immediately
-    const populatedComment = { ...createdComment.toObject() };
+    const createdComment = post.comments[post.comments.length - 1];
+    let populatedComment = { ...createdComment.toObject() };
+    
+    // Mock populate for instant return, but handles avatarUrl check
+    let authorAvatar = req.user.avatarUrl;
+    if (authorAvatar && !authorAvatar.startsWith('http')) {
+        authorAvatar = await getSignedUrl(authorAvatar);
+    }
+
     populatedComment.author = {
         _id: req.user._id,
         name: req.user.name,
-        avatarUrl: req.user.avatarUrl
+        avatarUrl: authorAvatar
     };
 
     res.status(201).json(populatedComment);
@@ -110,9 +130,6 @@ exports.addComment = async (req, res, next) => {
   }
 };
 
-// @desc    Check for new posts since a given timestamp
-// @route   GET /api/posts/check-new
-// @access  Private
 exports.checkNewPosts = async (req, res, next) => {
   const { since } = req.query;
   if (!since) {

@@ -1,32 +1,38 @@
 const Product = require('../models/Product');
+const { getSignedUrl } = require('../services/mediaService');
 
-// @desc    Get all products
-// @route   GET /api/products
-// @access  Private
+// Helper para injetar URL assinada
+const populateProductUrls = async (product) => {
+  if (!product) return null;
+  const p = product.toObject ? product.toObject() : product;
+  if (p.thumbnailUrl && !p.thumbnailUrl.startsWith('http')) {
+    p.thumbnailUrl = await getSignedUrl(p.thumbnailUrl);
+  }
+  return p;
+};
+
 exports.getAllProducts = async (req, res, next) => {
   try {
     const products = await Product.find().sort({ createdAt: -1 });
-    res.status(200).json(products);
+    // Gera URLs assinadas para todos os produtos
+    const productsWithUrls = await Promise.all(products.map(populateProductUrls));
+    res.status(200).json(productsWithUrls);
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Create a new product
-// @route   POST /api/products
-// @access  Private/Admin
 exports.createProduct = async (req, res, next) => {
   try {
+    // req.body.thumbnailUrl virá como 'products/arquivo.webp' do frontend
     const product = await Product.create(req.body);
-    res.status(201).json(product);
+    const productWithUrl = await populateProductUrls(product);
+    res.status(201).json(productWithUrl);
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Update a product
-// @route   PUT /api/products/:id
-// @access  Private/Admin
 exports.updateProduct = async (req, res, next) => {
   try {
     const product = await Product.findByIdAndUpdate(req.params.id, req.body, {
@@ -36,15 +42,13 @@ exports.updateProduct = async (req, res, next) => {
     if (!product) {
       return res.status(404).json({ message: 'Produto não encontrado.' });
     }
-    res.status(200).json(product);
+    const productWithUrl = await populateProductUrls(product);
+    res.status(200).json(productWithUrl);
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Delete a product
-// @route   DELETE /api/products/:id
-// @access  Private/Admin
 exports.deleteProduct = async (req, res, next) => {
   try {
     const product = await Product.findById(req.params.id);

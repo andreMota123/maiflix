@@ -1,33 +1,36 @@
 const AdminPost = require('../models/AdminPost');
+const { getSignedUrl } = require('../services/mediaService');
 
-// @desc    Get all admin posts
-// @route   GET /api/admin-posts
-// @access  Private
+const populateAdminPostUrl = async (post) => {
+  if (!post) return null;
+  const p = post.toObject ? post.toObject() : post;
+  if (p.imageUrl && !p.imageUrl.startsWith('http')) {
+    p.imageUrl = await getSignedUrl(p.imageUrl);
+  }
+  return p;
+};
+
 exports.getAllAdminPosts = async (req, res, next) => {
   try {
     const posts = await AdminPost.find().sort({ createdAt: -1 });
-    res.status(200).json(posts);
+    const postsWithUrls = await Promise.all(posts.map(populateAdminPostUrl));
+    res.status(200).json(postsWithUrls);
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Create a new admin post
-// @route   POST /api/admin-posts
-// @access  Private/Admin
 exports.createAdminPost = async (req, res, next) => {
   const { title, content, imageUrl, videoUrl } = req.body;
   try {
     const post = await AdminPost.create({ title, content, imageUrl, videoUrl });
-    res.status(201).json(post);
+    const postWithUrl = await populateAdminPostUrl(post);
+    res.status(201).json(postWithUrl);
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Update an admin post
-// @route   PUT /api/admin-posts/:id
-// @access  Private/Admin
 exports.updateAdminPost = async (req, res, next) => {
   try {
     const post = await AdminPost.findByIdAndUpdate(req.params.id, req.body, {
@@ -37,15 +40,13 @@ exports.updateAdminPost = async (req, res, next) => {
     if (!post) {
       return res.status(404).json({ message: 'Post não encontrado.' });
     }
-    res.status(200).json(post);
+    const postWithUrl = await populateAdminPostUrl(post);
+    res.status(200).json(postWithUrl);
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Delete an admin post
-// @route   DELETE /api/admin-posts/:id
-// @access  Private/Admin
 exports.deleteAdminPost = async (req, res, next) => {
   try {
     const post = await AdminPost.findById(req.params.id);

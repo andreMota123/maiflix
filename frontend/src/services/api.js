@@ -22,6 +22,7 @@ api.interceptors.request.use(
 );
 
 // Função auxiliar para upload de imagem
+// Retorna o gcsPath (para salvar no banco)
 export const uploadImage = async (file, folder) => {
     const formData = new FormData();
     formData.append('file', file);
@@ -33,7 +34,9 @@ export const uploadImage = async (file, folder) => {
                 'Content-Type': 'multipart/form-data',
             },
         });
-        return response.data.url;
+        // O backend agora retorna { ok: true, gcsPath: '...', url: '...' }
+        // Retornamos gcsPath para persistência no banco de dados
+        return response.data.gcsPath;
     } catch (error) {
         console.error("Erro no upload de imagem:", error);
         throw error;
