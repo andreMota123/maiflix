@@ -31,9 +31,8 @@ const EditProfileModal: FC<{ user: User; onClose: () => void; onSave: (updates: 
             <div className="bg-brand-surface rounded-xl p-6 w-full max-w-md shadow-lg" onClick={(e) => e.stopPropagation()}>
                 <h2 className="text-2xl font-bold text-white mb-6">Editar Perfil</h2>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="flex justify-center mb-4">
-                        <img src={avatarUrl} alt="Avatar Preview" className="w-24 h-24 rounded-full object-cover ring-2 ring-brand-primary" />
-                    </div>
+                    {/* Removida a imagem duplicada aqui. O ImageUpload já mostra o preview. */}
+                    
                     <Input label="Nome Completo" id="profile-name" type="text" value={name} onChange={e => setName(e.target.value)} required className="" />
                     
                     <ImageUpload 
@@ -80,10 +79,9 @@ const ProfilePage: FC = () => {
 
     const handleSaveProfile = async (updates: { name: string; avatarUrl: string }) => {
         try {
-            // In a real app, user update should be a dedicated endpoint
-            // Here we use the admin one for simplicity as it's not specified
-            await api.put(`/users/${currentUser._id}`, updates);
-            // Re-verify user to update context
+            // Use a rota dedicada para o próprio usuário atualizar seu perfil
+            await api.put('/auth/profile', updates);
+            // Re-verify user to update context and sidebar image
             await verifyUserSubscription();
         } catch (error) {
             console.error("Failed to update profile:", error);
@@ -96,7 +94,7 @@ const ProfilePage: FC = () => {
             {isEditModalOpen && <EditProfileModal user={currentUser} onClose={() => setIsEditModalOpen(false)} onSave={handleSaveProfile} />}
             <div className="p-4 sm:p-6">
                 <header className="bg-brand-surface rounded-xl p-6 flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-6 mb-6">
-                    <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-24 h-24 rounded-full ring-4 ring-brand-primary" />
+                    <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-24 h-24 rounded-full ring-4 ring-brand-primary object-cover" />
                     <div className="text-center sm:text-left flex-grow">
                         <h2 className="text-3xl font-bold text-white">{currentUser.name}</h2>
                         <p className="text-brand-text-light">{currentUser.email}</p>

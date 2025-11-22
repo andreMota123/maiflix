@@ -76,3 +76,25 @@ exports.checkSubscription = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.updateProfile = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'Usuário não encontrado.' });
+    }
+
+    // Atualiza apenas campos permitidos
+    if (req.body.name) user.name = req.body.name;
+    if (req.body.avatarUrl) user.avatarUrl = req.body.avatarUrl;
+
+    await user.save();
+
+    const userResponse = await populateUserUrl(user);
+
+    res.status(200).json(userResponse);
+  } catch (error) {
+    next(error);
+  }
+};

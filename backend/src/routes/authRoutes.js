@@ -5,5 +5,6 @@ const { protect } = require('../middlewares/authMiddleware');
 
 router.post('/login', authController.login);
 router.get('/check-subscription', protect, authController.checkSubscription);
+router.put('/profile', protect, authController.updateProfile);
 
 module.exports = router;
