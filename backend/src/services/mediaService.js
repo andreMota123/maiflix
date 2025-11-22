@@ -5,38 +5,39 @@ const path = require('path');
 const logger = require('../utils/logger');
 
 /**
- * Gera uma URL assinada (Signed URL) para acesso temporário a um arquivo privado
- * @param {string} gcsPath - O caminho/nome do arquivo no bucket
- * @returns {Promise<string|null>} - A URL pública temporária ou null se não existir
+ * Gera uma URL assinada (Signed URL) para acesso temporário a um arquivo privado.
+ * Checklist: V4, 1 hora de validade, verifica existência.
+ * 
+ * @param {string} gcsPath - O caminho/nome do arquivo no bucket (ex: products/foto.png)
+ * @returns {Promise<string|null>} - A URL pública temporária ou null se não existir/erro
  */
 const getSignedUrl = async (gcsPath) => {
-  if (!gcsPath || gcsPath.startsWith('http')) return gcsPath; // Se já for URL (legado), retorna ela
+  // Se não houver path ou se já for uma URL externa (legado), retorna como está
+  if (!gcsPath || gcsPath.startsWith('http')) return gcsPath;
 
   try {
-    if (!bucket) throw new Error('Bucket GCS não configurado.');
+    if (!bucket) throw new Error('Bucket GCS não está inicializado.');
 
     const file = bucket.file(gcsPath);
     
-    // Verifica se o arquivo realmente existe antes de assinar a URL
-    // Isso evita gerar links quebrados que retornam XML de erro do Google
+    // 1. Verifica se o arquivo realmente existe (Tratamento 404)
     const [exists] = await file.exists();
-
     if (!exists) {
-      logger.warn(`Arquivo não encontrado no bucket: ${gcsPath}`);
+      logger.warn(`Arquivo solicitado não encontrado no GCS: ${gcsPath}`);
       return null; 
     }
 
-    // Gera URL assinada V4
+    // 2. Gera URL assinada V4 com validade de 1 hora (Checklist 4)
     const [url] = await file.getSignedUrl({
       version: 'v4',
       action: 'read',
-      expires: Date.now() + 60 * 60 * 1000, // 1 hora de validade
+      expires: Date.now() + 60 * 60 * 1000, // 1 hora a partir de agora
     });
 
     return url;
   } catch (error) {
     logger.error(`Erro ao gerar URL assinada para ${gcsPath}:`, error.message);
-    return null;
+    throw error; // Lança erro para o controller tratar como 500
   }
 };
 
@@ -48,23 +49,22 @@ const getSignedUrl = async (gcsPath) => {
  */
 const processImage = async (file, folder = 'uploads') => {
   if (!bucket) throw new Error('Serviço de Storage indisponível.');
-  
   if (!file) throw new Error('Nenhum arquivo enviado.');
 
   try {
-    // 1. Otimização na memória com Sharp (converte para WebP)
+    // Otimização na memória com Sharp (converte para WebP)
     const optimizedBuffer = await sharp(file.buffer)
       .resize({ width: 1920, withoutEnlargement: true })
       .webp({ quality: 80 })
       .toBuffer();
 
-    // 2. Gerar nome único
+    // Gerar nome único
     const timestamp = Date.now();
     const safeName = path.parse(file.originalname).name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
     const fileName = `${folder}/${timestamp}-${safeName}-${uuidv4()}.webp`;
     const fileUpload = bucket.file(fileName);
 
-    // 3. Upload Stream para o GCS
+    // Upload Stream para o GCS
     await fileUpload.save(optimizedBuffer, {
       metadata: {
         contentType: 'image/webp',
@@ -74,12 +74,12 @@ const processImage = async (file, folder = 'uploads') => {
 
     logger.info(`Arquivo salvo no GCS: ${fileName}`);
 
-    // 4. Gerar URL assinada imediata para o frontend visualizar agora
+    // Gerar URL assinada imediata para preview no frontend
     const signedUrl = await getSignedUrl(fileName);
 
     return {
-      gcsPath: fileName, // O que será salvo no MongoDB (ex: products/123-foto.webp)
-      url: signedUrl     // Para preview imediato no frontend
+      gcsPath: fileName, // Salvar no MongoDB
+      url: signedUrl     // Preview imediato
     };
 
   } catch (error) {
@@ -88,9 +88,6 @@ const processImage = async (file, folder = 'uploads') => {
   }
 };
 
-/**
- * Remove um arquivo do bucket
- */
 const deleteImage = async (gcsPath) => {
   if (!gcsPath || !bucket) return;
   try {

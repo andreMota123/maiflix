@@ -1,4 +1,5 @@
 const mediaService = require('../services/mediaService');
+const logger = require('../utils/logger');
 
 // @desc    Upload an image to GCS
 // @route   POST /api/media/upload
@@ -11,13 +12,12 @@ exports.uploadImage = async (req, res, next) => {
 
     const folder = req.body.folder || 'uploads';
     
-    // Retorna tanto o path interno (para salvar no banco) quanto a URL temporária (para mostrar na tela)
     const result = await mediaService.processImage(req.file, folder);
 
     res.status(201).json({
       ok: true,
-      gcsPath: result.gcsPath, // Salvar isso no MongoDB
-      url: result.url          // Usar isso no <img src> imediatamente
+      gcsPath: result.gcsPath,
+      url: result.url
     });
   } catch (error) {
     next(error);
@@ -26,30 +26,33 @@ exports.uploadImage = async (req, res, next) => {
 
 // @desc    Get signed URL for a GCS path
 // @route   GET /api/media/image/*
-// @access  Public (Protected by signed URL generation logic)
+// @access  Public (Protegido pela assinatura da URL)
 exports.getImageUrl = async (req, res, next) => {
   try {
-    // req.params[0] captura tudo que vem depois de /image/
-    // Ex: se a url for /api/media/image/products/foto.png, req.params[0] será "products/foto.png"
+    // Checklist 3: Pegar o caminho completo com req.params[0] e decodificar
+    // Ex: se a url for /api/media/image/products/foto.png, req.params[0] é "products/foto.png"
     const rawPath = req.params[0];
 
     if (!rawPath) {
         return res.status(400).json({ message: 'Caminho do arquivo não fornecido.' });
     }
 
-    // Decodifica caracteres especiais (espaços, acentos) que o navegador possa ter codificado
     const gcsPath = decodeURIComponent(rawPath);
     
+    // Chama o serviço para gerar a URL
     const url = await mediaService.getSignedUrl(gcsPath);
 
+    // Checklist 6: Tratamento de erro 404
     if (!url) {
-      return res.status(404).json({ message: 'Imagem não encontrada ou expirada.' });
+      return res.status(404).json({ message: 'Imagem não encontrada.' });
     }
 
+    // Checklist 5: Retorna JSON { url }
     res.status(200).json({ url });
+
   } catch (error) {
-    console.error("Erro no controller getImageUrl:", error);
-    // Não expõe erro interno detalhado, mas retorna 500
-    res.status(500).json({ message: 'Erro interno ao gerar URL da imagem.' });
+    // Checklist 6: Tratamento de erro 500
+    logger.error(`Erro interno ao recuperar imagem:`, error);
+    res.status(500).json({ message: 'Erro interno ao processar solicitação de imagem.' });
   }
 };
