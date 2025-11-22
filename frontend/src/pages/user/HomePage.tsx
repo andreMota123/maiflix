@@ -8,19 +8,33 @@ import { ChevronLeftIcon, ChevronRightIcon, BoxIcon } from '../../components/Ico
 // --- Helper Functions ---
 const getYoutubeEmbedUrl = (url: string): string | null => {
     if (!url) return null;
-    let videoId;
+    let videoId = null;
     try {
         const urlObj = new URL(url);
-        if (urlObj.hostname === 'youtu.be') {
+        
+        // Lógica universal de extração de ID
+        if (urlObj.hostname.includes('youtu.be')) {
+            // https://youtu.be/VIDEO_ID
             videoId = urlObj.pathname.slice(1);
         } else if (urlObj.hostname.includes('youtube.com')) {
-            videoId = urlObj.searchParams.get('v');
+            if (urlObj.pathname.includes('/shorts/')) {
+                // https://www.youtube.com/shorts/VIDEO_ID
+                const parts = urlObj.pathname.split('/shorts/');
+                videoId = parts[1];
+            } else if (urlObj.pathname.includes('/embed/')) {
+                // https://www.youtube.com/embed/VIDEO_ID
+                const parts = urlObj.pathname.split('/embed/');
+                videoId = parts[1];
+            } else if (urlObj.searchParams.has('v')) {
+                // https://www.youtube.com/watch?v=VIDEO_ID
+                videoId = urlObj.searchParams.get('v');
+            }
         }
     } catch (e) {
         console.error("Invalid YouTube URL", e);
         return null;
     }
-    // Fix Error 153: Use nocookie domain and add origin parameter
+
     return videoId ? `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1&enablejsapi=1&origin=${window.location.origin}` : null;
 };
 
