@@ -50,8 +50,8 @@ export const getSignedUrl = async (gcsPath) => {
     if (gcsPath.startsWith('http')) return gcsPath; // Se já for link externo, retorna direto
 
     try {
-        // Codifica todo o caminho para garantir que caracteres especiais e barras
-        // sejam passados corretamente para a rota wildcard do backend.
+        // Codifica o caminho completo (incluindo barras) para passar na URL
+        // O backend wildcard vai receber isso e decodificar.
         const encodedPath = encodeURIComponent(gcsPath);
         
         const response = await api.get(`/media/image/${encodedPath}`);
