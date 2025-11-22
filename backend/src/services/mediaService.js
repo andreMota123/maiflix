@@ -7,7 +7,7 @@ const logger = require('../utils/logger');
 /**
  * Gera uma URL assinada (Signed URL) para acesso temporário a um arquivo privado
  * @param {string} gcsPath - O caminho/nome do arquivo no bucket
- * @returns {Promise<string>} - A URL pública temporária
+ * @returns {Promise<string|null>} - A URL pública temporária ou null se não existir
  */
 const getSignedUrl = async (gcsPath) => {
   if (!gcsPath || gcsPath.startsWith('http')) return gcsPath; // Se já for URL (legado), retorna ela
@@ -16,13 +16,17 @@ const getSignedUrl = async (gcsPath) => {
     if (!bucket) throw new Error('Bucket GCS não configurado.');
 
     const file = bucket.file(gcsPath);
+    
+    // Verifica se o arquivo realmente existe antes de assinar a URL
+    // Isso evita gerar links quebrados que retornam XML de erro do Google
     const [exists] = await file.exists();
 
     if (!exists) {
-      // Retorna uma imagem placeholder ou null se o arquivo não existir
+      logger.warn(`Arquivo não encontrado no bucket: ${gcsPath}`);
       return null; 
     }
 
+    // Gera URL assinada V4
     const [url] = await file.getSignedUrl({
       version: 'v4',
       action: 'read',
@@ -39,7 +43,7 @@ const getSignedUrl = async (gcsPath) => {
 /**
  * Processa a imagem (Sharp) e faz upload para o Google Cloud Storage
  * @param {Object} file - Objeto file do Multer
- * @param {string} folder - Pasta lógica (apenas para log, o bucket é flat ou usa prefixos)
+ * @param {string} folder - Pasta lógica
  * @returns {Promise<{gcsPath: string, url: string}>}
  */
 const processImage = async (file, folder = 'uploads') => {
@@ -65,7 +69,7 @@ const processImage = async (file, folder = 'uploads') => {
       metadata: {
         contentType: 'image/webp',
       },
-      resumable: false // Melhor para arquivos pequenos/médios em serverless
+      resumable: false
     });
 
     logger.info(`Arquivo salvo no GCS: ${fileName}`);
@@ -74,7 +78,7 @@ const processImage = async (file, folder = 'uploads') => {
     const signedUrl = await getSignedUrl(fileName);
 
     return {
-      gcsPath: fileName, // O que será salvo no MongoDB
+      gcsPath: fileName, // O que será salvo no MongoDB (ex: products/123-foto.webp)
       url: signedUrl     // Para preview imediato no frontend
     };
 

@@ -14,8 +14,9 @@ const upload = multer({
 // POST /api/media/upload
 router.post('/upload', protect, upload.single('file'), mediaController.uploadImage);
 
-// GET /api/media/image/pasta/arquivo.webp
-// O (*) permite capturar caminhos com barras (ex: profiles/foto.png)
-router.get('/image/:path(*)', mediaController.getImageUrl);
+// GET /api/media/image/*
+// O uso do wildcard (*) permite capturar caminhos complexos como "products/2024/imagem.webp"
+// O valor capturado estará em req.params[0]
+router.get('/image/*', mediaController.getImageUrl);
 
 module.exports = router;
