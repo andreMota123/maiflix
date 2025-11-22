@@ -44,7 +44,9 @@ app.use(helmet({
       scriptSrc: [
         "'self'", 
         "'unsafe-inline'", 
-        "https://cdn.tailwindcss.com"
+        "https://cdn.tailwindcss.com",
+        "https://www.youtube.com",
+        "https://s.ytimg.com"
       ],
       styleSrc: [
         "'self'", 
@@ -58,13 +60,17 @@ app.use(helmet({
       frameSrc: [
         "'self'", 
         "https://www.youtube.com", 
-        "https://youtube.com"
+        "https://youtube.com",
+        "https://youtu.be"
       ],
       connectSrc: [
         "'self'", 
         "https://maiflix-9kgs.onrender.com", 
         "https://storage.googleapis.com", 
-        "https://*.googleapis.com"
+        "https://*.googleapis.com",
+        "https://www.youtube.com",
+        "https://youtube.com",
+        "https://*.googlevideo.com"
       ],
       upgradeInsecureRequests: null, // Desabilita forçar HTTPS em dev se necessário, mas bom manter em prod
     },
