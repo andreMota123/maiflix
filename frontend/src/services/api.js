@@ -1,10 +1,12 @@
 import axios from 'axios';
 
+// Define a URL base.
+// 1. Tenta usar VITE_API_URL do arquivo .env (útil para desenvolvimento local ou separação de servidores).
+// 2. Se não existir, usa '/api' (padrão para deploy unificado no Render, onde front e back estão na mesma origem).
+const baseURL = import.meta.env.VITE_API_URL || '/api';
+
 const api = axios.create({
-  // Usar um caminho relativo para a baseURL da API.
-  // Funciona porque em produção o frontend é servido do mesmo domínio que o backend.
-  // Em desenvolvimento, o proxy do Vite cuidará do redirecionamento.
-  baseURL: '/api',
+  baseURL,
 });
 
 // Interceptor para adicionar o token de autenticação em todas as requisições
@@ -42,14 +44,14 @@ export const uploadImage = async (file, folder) => {
     }
 };
 
-// NOVA FUNÇÃO: Busca a URL assinada (temporária) para um arquivo privado
+// Busca a URL assinada (temporária) para um arquivo privado
 export const getSignedUrl = async (gcsPath) => {
     if (!gcsPath) return null;
     if (gcsPath.startsWith('http')) return gcsPath; // Se já for link externo, retorna direto
 
     try {
-        // Codifica todo o caminho (incluindo barras) para garantir que caracteres especiais
-        // sejam tratados corretamente na URL da API.
+        // Codifica todo o caminho para garantir que caracteres especiais e barras
+        // sejam passados corretamente para a rota wildcard do backend.
         const encodedPath = encodeURIComponent(gcsPath);
         
         const response = await api.get(`/media/image/${encodedPath}`);
