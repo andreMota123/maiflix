@@ -23,17 +23,55 @@ const bannerRoutes = require('./src/routes/bannerRoutes');
 const settingRoutes = require('./src/routes/settingRoutes');
 const postRoutes = require('./src/routes/postRoutes');
 const webhookLogRoutes = require('./src/routes/webhookLogRoutes');
-const mediaRoutes = require('./src/routes/mediaRoutes'); // Nova rota de mídia
+const mediaRoutes = require('./src/routes/mediaRoutes');
 
 const app = express();
 
-// --- Core Middlewares ---
+// --- Security Middlewares (CSP Config) ---
 app.use(helmet({
-  crossOriginResourcePolicy: false, 
-})); 
-app.use(cors({ origin: process.env.CORS_ORIGIN || '*' })); 
+  crossOriginResourcePolicy: { policy: "cross-origin" }, // Permite carregar imagens de outros domínios
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      imgSrc: [
+        "'self'", 
+        "data:", 
+        "blob:", 
+        "https://storage.googleapis.com", 
+        "https://*.googleapis.com",
+        "https://*.googleusercontent.com"
+      ],
+      scriptSrc: [
+        "'self'", 
+        "'unsafe-inline'", 
+        "https://cdn.tailwindcss.com"
+      ],
+      styleSrc: [
+        "'self'", 
+        "'unsafe-inline'", 
+        "https://fonts.googleapis.com"
+      ],
+      fontSrc: [
+        "'self'", 
+        "https://fonts.gstatic.com"
+      ],
+      frameSrc: [
+        "'self'", 
+        "https://www.youtube.com", 
+        "https://youtube.com"
+      ],
+      connectSrc: [
+        "'self'", 
+        "https://maiflix-9kgs.onrender.com", 
+        "https://storage.googleapis.com", 
+        "https://*.googleapis.com"
+      ],
+      upgradeInsecureRequests: null, // Desabilita forçar HTTPS em dev se necessário, mas bom manter em prod
+    },
+  },
+}));
 
-// NOTA: Não servimos mais 'public' localmente, pois as imagens vão para o cPanel via FTP.
+app.use(cors({ origin: process.env.CORS_ORIGIN || '*' })); 
 
 // To verify Kiwify's signature, we need the raw request body.
 const captureRawBody = (req, res, buf, encoding) => {
@@ -71,7 +109,7 @@ app.use('/api/banners', bannerRoutes);
 app.use('/api/settings', settingRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/webhook-logs', webhookLogRoutes);
-app.use('/api/media', mediaRoutes); // Registra rotas de mídia
+app.use('/api/media', mediaRoutes);
 
 // --- Serve Frontend in Production ---
 if (process.env.NODE_ENV === 'production') {

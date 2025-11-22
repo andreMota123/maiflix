@@ -1,7 +1,6 @@
 const { Storage } = require('@google-cloud/storage');
 const logger = require('../utils/logger');
 
-let storage;
 let bucket;
 
 try {
@@ -14,18 +13,19 @@ try {
   }
 
   // O Render armazena o JSON como string nas variáveis de ambiente.
-  // É crucial fazer o JSON.parse aqui.
   const credentials = JSON.parse(process.env.GCS_CREDENTIALS);
   const bucketName = process.env.GCS_BUCKET_NAME;
 
-  storage = new Storage({ credentials });
+  const storage = new Storage({
+    credentials,
+    projectId: credentials.project_id, // Garante uso do projeto correto
+  });
+
   bucket = storage.bucket(bucketName);
 
   logger.info(`Google Cloud Storage configurado com sucesso. Bucket: ${bucketName}`);
 } catch (error) {
   logger.error('Erro fatal ao configurar Google Cloud Storage:', { message: error.message });
-  // Não derrubamos o processo aqui para permitir que o servidor inicie,
-  // mas as funções de mídia falharão se chamadas.
 }
 
-module.exports = { storage, bucket };
+module.exports = { bucket };
