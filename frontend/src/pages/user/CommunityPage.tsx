@@ -6,6 +6,52 @@ import api, { uploadImage } from '../../services/api';
 import { Button } from '../../components/ui/Button';
 import { HeartIcon, CommentIcon, TrashIcon, PhotoIcon, VideoIcon, UserGroupIcon } from '../../components/Icons';
 
+// Helper function for YouTube URLs (Same as HomePage for consistency)
+const getYoutubeEmbedUrl = (url: string): string | null => {
+    if (!url) return null;
+    let videoId: string | null | undefined = null;
+    try {
+        const urlObj = new URL(url);
+        
+        // Lógica universal de extração de ID
+        if (urlObj.hostname.includes('youtu.be')) {
+            // https://youtu.be/VIDEO_ID
+            videoId = urlObj.pathname.slice(1);
+        } else if (urlObj.hostname.includes('youtube.com')) {
+            if (urlObj.pathname.includes('/shorts/')) {
+                // https://www.youtube.com/shorts/VIDEO_ID
+                const parts = urlObj.pathname.split('/shorts/');
+                videoId = parts[1];
+            } else if (urlObj.pathname.includes('/embed/')) {
+                // https://www.youtube.com/embed/VIDEO_ID
+                const parts = urlObj.pathname.split('/embed/');
+                videoId = parts[1];
+            } else if (urlObj.searchParams.has('v')) {
+                // https://www.youtube.com/watch?v=VIDEO_ID
+                videoId = urlObj.searchParams.get('v');
+            }
+        }
+
+        // Limpeza final do ID
+        if (videoId) {
+            const ampersandIndex = videoId.indexOf('&');
+            if (ampersandIndex !== -1) {
+                videoId = videoId.substring(0, ampersandIndex);
+            }
+            const questionMarkIndex = videoId.indexOf('?');
+            if (questionMarkIndex !== -1) {
+                videoId = videoId.substring(0, questionMarkIndex);
+            }
+        }
+
+    } catch (e) {
+        console.error("Invalid YouTube URL", e);
+        return null;
+    }
+
+    return videoId ? `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1&enablejsapi=1&origin=${window.location.origin}` : null;
+};
+
 const CommunityPage: FC = () => {
     const { auth } = useAuth();
     const currentUser = auth.user;
@@ -219,7 +265,9 @@ const CommunityPage: FC = () => {
                         <p className="text-brand-text-light mt-2">Seja o primeiro a compartilhar algo incrível!</p>
                     </div>
                 ) : (
-                    posts.map(post => (
+                    posts.map(post => {
+                        const embedUrl = post.videoUrl ? getYoutubeEmbedUrl(post.videoUrl) : null;
+                        return (
                         <div key={post.id} className="bg-brand-surface rounded-xl p-4 sm:p-5 shadow-lg border border-brand-secondary/30">
                             <div className="flex items-start justify-between">
                                 <div className="flex items-center space-x-3">
@@ -240,7 +288,17 @@ const CommunityPage: FC = () => {
                             
                             <div className="my-3">
                                 {post.imageUrl && <img src={post.imageUrl} alt="Post content" className="rounded-lg w-full max-h-[500px] object-cover shadow-md" />}
-                                {post.videoUrl && <div className="aspect-video w-full shadow-lg rounded-lg overflow-hidden"><iframe className="w-full h-full" src={post.videoUrl.replace('watch?v=', 'embed/')} title="Video" allowFullScreen referrerPolicy="strict-origin-when-cross-origin"></iframe></div>}
+                                {embedUrl && (
+                                    <div className="aspect-video w-full shadow-lg rounded-lg overflow-hidden">
+                                        <iframe 
+                                            className="w-full h-full" 
+                                            src={embedUrl} 
+                                            title="Video" 
+                                            allowFullScreen 
+                                            referrerPolicy="strict-origin-when-cross-origin"
+                                        ></iframe>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="flex items-center space-x-6 text-brand-text-light border-t border-brand-secondary mt-4 pt-3">
@@ -297,7 +355,7 @@ const CommunityPage: FC = () => {
                                 </form>
                             </div>
                         </div>
-                    ))
+                    )})
                 )}
             </div>
         </div>

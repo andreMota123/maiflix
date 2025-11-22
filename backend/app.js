@@ -61,7 +61,8 @@ app.use(helmet({
         "'self'", 
         "https://www.youtube.com", 
         "https://youtube.com",
-        "https://youtu.be"
+        "https://youtu.be",
+        "https://www.youtube-nocookie.com"
       ],
       connectSrc: [
         "'self'", 
