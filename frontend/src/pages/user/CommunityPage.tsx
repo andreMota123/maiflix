@@ -240,7 +240,7 @@ const CommunityPage: FC = () => {
                             
                             <div className="my-3">
                                 {post.imageUrl && <img src={post.imageUrl} alt="Post content" className="rounded-lg w-full max-h-[500px] object-cover shadow-md" />}
-                                {post.videoUrl && <div className="aspect-video w-full shadow-lg rounded-lg overflow-hidden"><iframe className="w-full h-full" src={post.videoUrl.replace('watch?v=', 'embed/')} title="Video" allowFullScreen></iframe></div>}
+                                {post.videoUrl && <div className="aspect-video w-full shadow-lg rounded-lg overflow-hidden"><iframe className="w-full h-full" src={post.videoUrl.replace('watch?v=', 'embed/')} title="Video" allowFullScreen referrerPolicy="strict-origin-when-cross-origin"></iframe></div>}
                             </div>
 
                             <div className="flex items-center space-x-6 text-brand-text-light border-t border-brand-secondary mt-4 pt-3">
