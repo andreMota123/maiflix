@@ -20,7 +20,8 @@ const getYoutubeEmbedUrl = (url: string): string | null => {
         console.error("Invalid YouTube URL", e);
         return null;
     }
-    return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
+    // Fix Error 153: Use nocookie domain and add origin parameter
+    return videoId ? `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1&enablejsapi=1&origin=${window.location.origin}` : null;
 };
 
 // --- Components ---
@@ -99,7 +100,15 @@ const ProductDetailPage: FC<{ product: Product; onClose: () => void }> = ({ prod
                          <div className="border-t border-brand-secondary pt-6">
                             <h3 className="text-xl sm:text-2xl font-bold text-white mb-4">Vídeo Tutorial</h3>
                             <div className="aspect-video w-full shadow-lg rounded-lg overflow-hidden">
-                                <iframe className="w-full h-full" src={embedUrl} title="YouTube video player" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen></iframe>
+                                <iframe 
+                                    className="w-full h-full" 
+                                    src={embedUrl} 
+                                    title="YouTube video player" 
+                                    frameBorder="0" 
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                                    referrerPolicy="strict-origin-when-cross-origin"
+                                    allowFullScreen
+                                ></iframe>
                             </div>
                         </div>
                     )}
