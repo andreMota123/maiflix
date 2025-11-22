@@ -8,7 +8,7 @@ import { ChevronLeftIcon, ChevronRightIcon, BoxIcon } from '../../components/Ico
 // --- Helper Functions ---
 const getYoutubeEmbedUrl = (url: string): string | null => {
     if (!url) return null;
-    let videoId = null;
+    let videoId: string | null | undefined = null;
     try {
         const urlObj = new URL(url);
         
@@ -30,6 +30,19 @@ const getYoutubeEmbedUrl = (url: string): string | null => {
                 videoId = urlObj.searchParams.get('v');
             }
         }
+
+        // Limpeza final do ID (caso venha com parametros extras na string)
+        if (videoId) {
+            const ampersandIndex = videoId.indexOf('&');
+            if (ampersandIndex !== -1) {
+                videoId = videoId.substring(0, ampersandIndex);
+            }
+            const questionMarkIndex = videoId.indexOf('?');
+            if (questionMarkIndex !== -1) {
+                videoId = videoId.substring(0, questionMarkIndex);
+            }
+        }
+
     } catch (e) {
         console.error("Invalid YouTube URL", e);
         return null;
