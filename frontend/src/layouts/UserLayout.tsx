@@ -143,7 +143,6 @@ const UserLayout: FC = () => {
                            {newPostCount} nov{newPostCount > 1 ? 'as' : 'a'} publicaç{newPostCount > 1 ? 'ões' : 'ão'}! Clique para ver.
                         </div>
                     )}
-                    {/* AQUI ESTAVA O ERRO: Substituído 'children' por 'Outlet' */}
                     <Outlet />
                 </main>
             </div>

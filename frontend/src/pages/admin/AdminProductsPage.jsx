@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
-import api from '../../services/api';
+import api, { getSignedUrl } from '../../services/api';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { ImageUpload } from '../../components/ui/ImageUpload';
@@ -17,7 +18,14 @@ const AdminProductsPage = () => {
             setLoading(true);
             setError('');
             const { data } = await api.get('/products');
-            setProducts(data);
+            
+            // Resolve URLs assinadas para exibição
+            const resolvedProducts = await Promise.all(data.map(async (p) => {
+                const url = await getSignedUrl(p.thumbnailUrl);
+                return { ...p, resolvedThumbnailUrl: url || p.thumbnailUrl };
+            }));
+
+            setProducts(resolvedProducts);
         } catch (err) {
             setError(err.response?.data?.message || 'Falha ao carregar produtos.');
         } finally {
@@ -48,8 +56,8 @@ const AdminProductsPage = () => {
     const ProductFormModal = () => {
         const [name, setName] = useState(editingProduct?.name || '');
         const [description, setDescription] = useState(editingProduct?.description || '');
-        // Armazenamos o valor inicial (URL assinada) para preview
-        const [thumbnailUrl, setThumbnailUrl] = useState(editingProduct?.thumbnailUrl || '');
+        // Inicializa com a URL resolvida (assinada) para preview
+        const [thumbnailUrl, setThumbnailUrl] = useState(editingProduct?.resolvedThumbnailUrl || editingProduct?.thumbnailUrl || '');
         const [fileType, setFileType] = useState(editingProduct?.fileType || 'SVG');
         const [downloadUrl, setDownloadUrl] = useState(editingProduct?.downloadUrl || '');
         const [youtubeUrl, setYoutubeUrl] = useState(editingProduct?.youtubeUrl || '');
@@ -57,24 +65,22 @@ const AdminProductsPage = () => {
         const handleSubmit = async (e) => {
             e.preventDefault();
             
-            // Lógica para evitar enviar URL assinada antiga se a imagem não mudou
-            // Se thumbnailUrl ainda é uma URL http (assinada), significa que o usuário não trocou a imagem.
-            // Nesse caso, o backend mantém a antiga se não enviarmos nada, ou precisamos enviar a antiga?
-            // O ideal é que o componente ImageUpload retorne o gcsPath novo quando muda.
-            // Se não mudou, o backend deve ser inteligente ou enviamos o objeto como está.
-            // Simples: Se o usuário não mudou, enviamos o que temos. O backend pode tratar.
-            // MELHOR: O backend espera 'thumbnailUrl'. Se for gcsPath, salva. Se for http..., salva.
-            
-            const productData = { name, description, thumbnailUrl, fileType, downloadUrl, youtubeUrl };
+            // Lógica de Proteção:
+            // Se 'thumbnailUrl' for uma URL assinada (http...), usa o valor original do banco.
+            let finalThumbnailUrl = thumbnailUrl;
+            if (thumbnailUrl.startsWith('http') && editingProduct) {
+                finalThumbnailUrl = editingProduct.thumbnailUrl;
+            }
+
+            const productData = { name, description, thumbnailUrl: finalThumbnailUrl, fileType, downloadUrl, youtubeUrl };
             
             try {
                 if (editingProduct) {
-                    const { data } = await api.put(`/products/${editingProduct._id}`, productData);
-                    setProducts(products.map(p => p._id === editingProduct._id ? data : p));
+                    await api.put(`/products/${editingProduct._id}`, productData);
                 } else {
-                    const { data } = await api.post('/products', productData);
-                    setProducts([data, ...products]);
+                    await api.post('/products', productData);
                 }
+                fetchProducts(); // Recarrega lista
                 setIsModalOpen(false);
             } catch (err) {
                 alert(err.response?.data?.message || 'Falha ao salvar produto.');
@@ -88,7 +94,6 @@ const AdminProductsPage = () => {
                     <form onSubmit={handleSubmit} className="space-y-4 max-h-[80vh] overflow-y-auto pr-2">
                         <Input label="Nome do Produto" id="prod-name" type="text" value={name} onChange={e => setName(e.target.value)} required />
                         
-                        {/* Componente de Upload de Imagem */}
                         <ImageUpload 
                             label="Capa / Miniatura" 
                             value={thumbnailUrl} 
@@ -138,7 +143,7 @@ const AdminProductsPage = () => {
                     {products.map(product => (
                         <li key={product._id} className="p-4 flex items-center justify-between space-x-4">
                             <div className="flex items-center space-x-4 flex-1 min-w-0">
-                                <img src={product.thumbnailUrl} alt={product.name} className="w-16 h-16 rounded-md object-cover flex-shrink-0 bg-gray-700" />
+                                <img src={product.resolvedThumbnailUrl} alt={product.name} className="w-16 h-16 rounded-md object-cover flex-shrink-0 bg-gray-700" />
                                 <div className="min-w-0">
                                     <p className="font-semibold text-white truncate">{product.name}</p>
                                     <p className="text-sm text-gray-400 truncate">{product.description}</p>

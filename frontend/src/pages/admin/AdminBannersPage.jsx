@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
-import api from '../../services/api';
+import api, { getSignedUrl } from '../../services/api';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { ImageUpload } from '../../components/ui/ImageUpload';
@@ -17,7 +18,14 @@ const AdminBannersPage = () => {
             setLoading(true);
             setError('');
             const { data } = await api.get('/banners');
-            setBanners(data);
+            
+            // Resolve URL assinadas para exibição
+            const resolvedBanners = await Promise.all(data.map(async (b) => {
+                const url = await getSignedUrl(b.imageUrl);
+                return { ...b, resolvedImageUrl: url || b.imageUrl };
+            }));
+
+            setBanners(resolvedBanners);
         } catch (err) {
             setError(err.response?.data?.message || 'Falha ao carregar banners.');
         } finally {
@@ -48,20 +56,31 @@ const AdminBannersPage = () => {
     const BannerFormModal = () => {
         const [title, setTitle] = useState(editingBanner?.title || '');
         const [subtitle, setSubtitle] = useState(editingBanner?.subtitle || '');
-        const [imageUrl, setImageUrl] = useState(editingBanner?.imageUrl || '');
+        // Inicializa com a URL resolvida (assinada) para preview
+        const [imageUrl, setImageUrl] = useState(editingBanner?.resolvedImageUrl || editingBanner?.imageUrl || '');
         const [linkUrl, setLinkUrl] = useState(editingBanner?.linkUrl || '');
         
         const handleSubmit = async (e) => {
             e.preventDefault();
-            const bannerData = { title, subtitle, imageUrl, linkUrl };
+            
+            // Lógica de Proteção:
+            // Se 'imageUrl' for uma URL assinada (começa com http e já existia), 
+            // significa que o usuário NÃO trocou a foto.
+            // Nesse caso, DEVEMOS enviar o 'gcsPath' original (editingBanner.imageUrl) para o banco.
+            let finalImageUrl = imageUrl;
+            if (imageUrl.startsWith('http') && editingBanner) {
+                finalImageUrl = editingBanner.imageUrl; // Mantém o gcsPath original
+            }
+
+            const bannerData = { title, subtitle, imageUrl: finalImageUrl, linkUrl };
+            
             try {
                 if (editingBanner) {
-                    const { data } = await api.put(`/banners/${editingBanner._id}`, bannerData);
-                    setBanners(banners.map(b => b._id === editingBanner._id ? data : b));
+                    await api.put(`/banners/${editingBanner._id}`, bannerData);
                 } else {
-                    const { data } = await api.post('/banners', bannerData);
-                    setBanners([data, ...banners]);
+                    await api.post('/banners', bannerData);
                 }
+                fetchBanners(); // Recarrega tudo para garantir URLs frescas
                 setIsModalOpen(false);
             } catch (err) {
                 alert(err.response?.data?.message || 'Falha ao salvar banner.');
@@ -112,7 +131,7 @@ const AdminBannersPage = () => {
                     {banners.map(banner => (
                         <li key={banner._id} className="p-4 flex items-center justify-between space-x-4">
                             <div className="flex items-center space-x-4 flex-1 min-w-0">
-                                <img src={banner.imageUrl} alt={banner.title} className="w-24 h-12 rounded-md object-cover flex-shrink-0 bg-gray-700" />
+                                <img src={banner.resolvedImageUrl} alt={banner.title} className="w-24 h-12 rounded-md object-cover flex-shrink-0 bg-gray-700" />
                                 <div className="min-w-0">
                                     <p className="font-semibold text-white truncate">{banner.title}</p>
                                     <p className="text-sm text-gray-400 truncate">{banner.subtitle}</p>

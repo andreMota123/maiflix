@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, FC } from 'react';
 import { Product, Banner } from '../../types';
-import api from '../../services/api';
+import api, { getSignedUrl } from '../../services/api';
 import { Button } from '../../components/ui/Button';
 import { ChevronLeftIcon, ChevronRightIcon, BoxIcon } from '../../components/Icons';
 
@@ -41,7 +41,6 @@ const Carousel: FC<{ banners: Banner[] }> = ({ banners }) => {
     const prevSlide = () => setCurrentIndex((prev) => (prev - 1 + banners.length) % banners.length);
 
     if (!banners || banners.length === 0) {
-        // Estado vazio amigável para o Banner
         return (
             <div className="aspect-[2/1] sm:aspect-[3/1] bg-gradient-to-r from-brand-secondary to-brand-surface rounded-lg flex flex-col items-center justify-center text-center p-6 shadow-lg">
                 <h2 className="text-3xl font-bold text-white mb-2">Bem-vindo ao Maiflix!</h2>
@@ -124,8 +123,23 @@ const HomePage: FC = () => {
                     api.get('/products'),
                     api.get('/banners'),
                 ]);
-                setProducts(productsRes.data.map((p: any) => ({ ...p, id: p._id })));
-                setBanners(bannersRes.data.map((b: any) => ({ ...b, id: b._id })));
+
+                // Resolve Product URLs (assinando caminhos privados)
+                const rawProducts = productsRes.data;
+                const resolvedProducts = await Promise.all(rawProducts.map(async (p: any) => {
+                    const url = await getSignedUrl(p.thumbnailUrl);
+                    return { ...p, id: p._id, thumbnailUrl: url || p.thumbnailUrl };
+                }));
+
+                // Resolve Banner URLs (assinando caminhos privados)
+                const rawBanners = bannersRes.data;
+                const resolvedBanners = await Promise.all(rawBanners.map(async (b: any) => {
+                    const url = await getSignedUrl(b.imageUrl);
+                    return { ...b, id: b._id, imageUrl: url || b.imageUrl };
+                }));
+
+                setProducts(resolvedProducts);
+                setBanners(resolvedBanners);
             } catch (error) {
                 console.error("Failed to fetch home page data:", error);
             } finally {
