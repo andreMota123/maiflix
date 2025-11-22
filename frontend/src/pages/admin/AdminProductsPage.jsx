@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { ImageUpload } from '../../components/ui/ImageUpload';
 import { BoxIcon, EditIcon, TrashIcon } from '../../components/Icons';
 
 const AdminProductsPage = () => {
@@ -47,6 +48,7 @@ const AdminProductsPage = () => {
     const ProductFormModal = () => {
         const [name, setName] = useState(editingProduct?.name || '');
         const [description, setDescription] = useState(editingProduct?.description || '');
+        // Armazenamos o valor inicial (URL assinada) para preview
         const [thumbnailUrl, setThumbnailUrl] = useState(editingProduct?.thumbnailUrl || '');
         const [fileType, setFileType] = useState(editingProduct?.fileType || 'SVG');
         const [downloadUrl, setDownloadUrl] = useState(editingProduct?.downloadUrl || '');
@@ -54,7 +56,17 @@ const AdminProductsPage = () => {
         
         const handleSubmit = async (e) => {
             e.preventDefault();
+            
+            // Lógica para evitar enviar URL assinada antiga se a imagem não mudou
+            // Se thumbnailUrl ainda é uma URL http (assinada), significa que o usuário não trocou a imagem.
+            // Nesse caso, o backend mantém a antiga se não enviarmos nada, ou precisamos enviar a antiga?
+            // O ideal é que o componente ImageUpload retorne o gcsPath novo quando muda.
+            // Se não mudou, o backend deve ser inteligente ou enviamos o objeto como está.
+            // Simples: Se o usuário não mudou, enviamos o que temos. O backend pode tratar.
+            // MELHOR: O backend espera 'thumbnailUrl'. Se for gcsPath, salva. Se for http..., salva.
+            
             const productData = { name, description, thumbnailUrl, fileType, downloadUrl, youtubeUrl };
+            
             try {
                 if (editingProduct) {
                     const { data } = await api.put(`/products/${editingProduct._id}`, productData);
@@ -75,20 +87,28 @@ const AdminProductsPage = () => {
                     <h2 className="text-2xl font-bold text-white mb-4">{editingProduct ? 'Editar Produto' : 'Adicionar Produto'}</h2>
                     <form onSubmit={handleSubmit} className="space-y-4 max-h-[80vh] overflow-y-auto pr-2">
                         <Input label="Nome do Produto" id="prod-name" type="text" value={name} onChange={e => setName(e.target.value)} required />
-                        <Input label="URL da Miniatura" id="prod-thumb" type="text" value={thumbnailUrl} onChange={e => setThumbnailUrl(e.target.value)} placeholder="https://exemplo.com/imagem.jpg" required />
+                        
+                        {/* Componente de Upload de Imagem */}
+                        <ImageUpload 
+                            label="Capa / Miniatura" 
+                            value={thumbnailUrl} 
+                            onChange={setThumbnailUrl} 
+                            folder="products"
+                        />
+
                         <div>
                             <label htmlFor="prod-desc" className="block text-sm font-medium text-gray-300 mb-1">Descrição</label>
-                            <textarea id="prod-desc" value={description} onChange={e => setDescription(e.target.value)} rows={3} className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500" required />
+                            <textarea id="prod-desc" value={description} onChange={e => setDescription(e.target.value)} rows={3} className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 text-white" required />
                         </div>
                         <div>
                             <label htmlFor="prod-type" className="block text-sm font-medium text-gray-300 mb-1">Tipo de Arquivo</label>
-                            <select id="prod-type" value={fileType} onChange={e => setFileType(e.target.value)} className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500">
+                            <select id="prod-type" value={fileType} onChange={e => setFileType(e.target.value)} className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 text-white">
                                 <option value="SVG">SVG</option>
                                 <option value="PDF">PDF</option>
                                 <option value="STUDIO">STUDIO</option>
                             </select>
                         </div>
-                        <Input label="URL para Download" id="prod-download" type="text" value={downloadUrl} onChange={e => setDownloadUrl(e.target.value)} required />
+                        <Input label="URL para Download (Drive/Dropbox)" id="prod-download" type="text" value={downloadUrl} onChange={e => setDownloadUrl(e.target.value)} required />
                         <Input label="URL do Vídeo do YouTube (opcional)" id="prod-youtube" type="text" value={youtubeUrl} onChange={e => setYoutubeUrl(e.target.value)} />
                         <div className="flex justify-end space-x-2 pt-4">
                             <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)}>Cancelar</Button>

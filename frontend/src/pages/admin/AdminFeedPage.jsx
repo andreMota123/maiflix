@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { ImageUpload } from '../../components/ui/ImageUpload';
 import { EditIcon, TrashIcon, PhotoIcon } from '../../components/Icons';
 
 const AdminFeedPage = () => {
@@ -81,9 +82,16 @@ const AdminFeedPage = () => {
                         <Input label="Título" id="post-title" type="text" value={title} onChange={e => setTitle(e.target.value)} required />
                         <div>
                             <label htmlFor="post-content" className="block text-sm font-medium text-gray-300 mb-1">Conteúdo</label>
-                            <textarea id="post-content" value={content} onChange={e => setContent(e.target.value)} rows={5} className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500" required />
+                            <textarea id="post-content" value={content} onChange={e => setContent(e.target.value)} rows={5} className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 text-white" required />
                         </div>
-                        <Input label="URL da Imagem (opcional)" id="post-image" type="text" value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://exemplo.com/imagem.jpg" />
+                        
+                        <ImageUpload 
+                            label="Imagem (opcional)" 
+                            value={imageUrl} 
+                            onChange={setImageUrl} 
+                            folder="banners"
+                        />
+
                         <Input label="URL do Vídeo (opcional)" id="post-video" type="text" value={videoUrl} onChange={e => setVideoUrl(e.target.value)} placeholder="https://exemplo.com/video.mp4" />
                         <div className="flex justify-end space-x-2 pt-4">
                             <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)}>Cancelar</Button>

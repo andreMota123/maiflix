@@ -5,6 +5,7 @@ import { User, Post, Class } from '../../types';
 import api from '../../services/api';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { ImageUpload } from '../../components/ui/ImageUpload';
 import { EditIcon, LogoutIcon, PhotoIcon, BookmarkIcon, HeartIcon, CommentIcon, UserCircleIcon } from '../../components/Icons';
 
 // Mocked classes for now, as there's no backend endpoint for them
@@ -34,7 +35,15 @@ const EditProfileModal: FC<{ user: User; onClose: () => void; onSave: (updates: 
                         <img src={avatarUrl} alt="Avatar Preview" className="w-24 h-24 rounded-full object-cover ring-2 ring-brand-primary" />
                     </div>
                     <Input label="Nome Completo" id="profile-name" type="text" value={name} onChange={e => setName(e.target.value)} required className="" />
-                    <Input label="URL do Avatar" id="profile-avatar" type="text" value={avatarUrl} onChange={e => setAvatarUrl(e.target.value)} className="" />
+                    
+                    <ImageUpload 
+                        label="Foto de Perfil" 
+                        value={avatarUrl} 
+                        onChange={setAvatarUrl} 
+                        folder="profiles"
+                        className="mb-4"
+                    />
+
                     <div className="flex justify-end space-x-2 pt-4">
                         <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
                         <Button type="submit">Salvar</Button>

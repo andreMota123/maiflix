@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, FC, useCallback } from 'react';
 import { Post, Comment } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
-import api from '../../services/api';
+import api, { uploadImage } from '../../services/api';
 import { Button } from '../../components/ui/Button';
 import { HeartIcon, CommentIcon, TrashIcon, PhotoIcon, VideoIcon, UserGroupIcon } from '../../components/Icons';
 
@@ -15,20 +15,19 @@ const CommunityPage: FC = () => {
     const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
     const [justLikedPostId, setJustLikedPostId] = useState<string | null>(null);
 
-    const [newPostMedia, setNewPostMedia] = useState<{ type: 'image' | 'video' | null, url: string | null }>({ type: null, url: null });
+    // Estado para Mídia do Novo Post
+    const [newPostMedia, setNewPostMedia] = useState<{ type: 'image' | 'video' | null, file: File | null, url: string | null }>({ type: null, file: null, url: null });
+    const [isUploading, setIsUploading] = useState(false);
     const imageInputRef = useRef<HTMLInputElement>(null);
-    const videoInputRef = useRef<HTMLInputElement>(null);
     
     const MAX_IMAGE_SIZE_MB = 10;
-    const MAX_VIDEO_SIZE_MB = 50;
     const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
-    const MAX_VIDEO_SIZE_BYTES = MAX_VIDEO_SIZE_MB * 1024 * 1024;
 
     const fetchPosts = useCallback(async () => {
         try {
             setLoading(true);
             const { data } = await api.get('/posts');
-            setPosts(data.map((p: any) => ({ ...p, id: p._id }))); // Map _id to id
+            setPosts(data.map((p: any) => ({ ...p, id: p._id }))); 
         } catch (error) {
             console.error("Failed to fetch posts:", error);
         } finally {
@@ -56,7 +55,6 @@ const CommunityPage: FC = () => {
             setJustLikedPostId(postId);
         }
 
-        // Optimistic update
         const originalLikes = post.likes;
         const newLikes = isCurrentlyLiked
             ? post.likes.filter(id => id !== currentUser._id)
@@ -68,7 +66,6 @@ const CommunityPage: FC = () => {
             await api.put(`/posts/${postId}/like`);
         } catch (error) {
             console.error("Failed to update like status:", error);
-            // Revert on error
             setPosts(posts.map(p => p.id === postId ? { ...p, likes: originalLikes } : p));
         }
     };
@@ -85,45 +82,69 @@ const CommunityPage: FC = () => {
         }
     }
     
-    const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'video') => {
+    const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) {
-            if (type === 'image' && file.size > MAX_IMAGE_SIZE_BYTES) {
-                alert(`O arquivo de imagem excede o limite de ${MAX_IMAGE_SIZE_MB}MB.`);
+            if (file.size > MAX_IMAGE_SIZE_BYTES) {
+                alert(`O arquivo excede o limite de ${MAX_IMAGE_SIZE_MB}MB.`);
                 event.target.value = '';
                 return;
             }
-            if (type === 'video' && file.size > MAX_VIDEO_SIZE_BYTES) {
-                alert(`O arquivo de vídeo excede o limite de ${MAX_VIDEO_SIZE_MB}MB.`);
-                event.target.value = '';
-                return;
-            }
+            // Mostra preview local
             const localUrl = URL.createObjectURL(file);
-            setNewPostMedia({ type, url: localUrl });
+            setNewPostMedia({ type: 'image', file: file, url: localUrl });
+        }
+    };
+
+    const handleVideoPrompt = () => {
+        const url = prompt("Insira o link do vídeo do YouTube:");
+        if (url) {
+            setNewPostMedia({ type: 'video', file: null, url: url });
         }
     };
     
     const cancelMedia = () => {
-        setNewPostMedia({ type: null, url: null });
+        setNewPostMedia({ type: null, file: null, url: null });
         if (imageInputRef.current) imageInputRef.current.value = '';
-        if (videoInputRef.current) videoInputRef.current.value = '';
     }
 
     const handleAddPost = async () => {
         if (!newPostText.trim() && !newPostMedia.url) return;
+        
+        setIsUploading(true);
         try {
+            let finalImageUrl = undefined;
+            let finalVideoUrl = undefined;
+
+            // 1. Se for imagem, faz upload para o Google Cloud primeiro
+            if (newPostMedia.type === 'image' && newPostMedia.file) {
+                const { gcsPath } = await uploadImage(newPostMedia.file, 'community');
+                finalImageUrl = gcsPath; // Salva o path interno
+            }
+
+            // 2. Se for vídeo, usa a URL direta
+            if (newPostMedia.type === 'video') {
+                finalVideoUrl = newPostMedia.url;
+            }
+
+            // 3. Cria o post com os dados processados
             const payload = {
                 text: newPostText,
-                imageUrl: newPostMedia.type === 'image' ? newPostMedia.url! : undefined,
-                videoUrl: newPostMedia.type === 'video' ? newPostMedia.url! : undefined,
+                imageUrl: finalImageUrl,
+                videoUrl: finalVideoUrl,
             }
+            
             const { data } = await api.post('/posts', payload);
+            // O backend já devolve o post populado e com URLs assinadas
             setPosts([{...data, id: data._id }, ...posts]);
+            
             setNewPostText('');
             cancelMedia();
         } catch (error) {
             console.error("Failed to add post:", error);
-            alert("Não foi possível publicar o post.");
+            alert("Não foi possível publicar o post. Tente novamente.");
+        } finally {
+            setIsUploading(false);
         }
     };
 
@@ -169,7 +190,8 @@ const CommunityPage: FC = () => {
                 {newPostMedia.url && (
                     <div className="mt-4 relative group">
                         {newPostMedia.type === 'image' && <img src={newPostMedia.url} alt="Pré-visualização" className="rounded-lg w-full max-h-60 object-contain" />}
-                        {newPostMedia.type === 'video' && <video controls src={newPostMedia.url} className="rounded-lg w-full max-h-60 bg-black" />}
+                        {newPostMedia.type === 'video' && <div className="bg-black text-white p-4 rounded text-center">Vídeo anexado: {newPostMedia.url}</div>}
+                        
                         <button onClick={cancelMedia} className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1.5 hover:bg-black/70 opacity-50 group-hover:opacity-100 transition-opacity">
                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
@@ -178,13 +200,14 @@ const CommunityPage: FC = () => {
 
                 <div className="flex justify-between items-center mt-3">
                     <div className="flex items-center space-x-2 text-brand-text-light">
-                        <input type="file" accept="image/*" ref={imageInputRef} onChange={(e) => handleFileSelect(e, 'image')} className="hidden" />
-                        <input type="file" accept="video/*" ref={videoInputRef} onChange={(e) => handleFileSelect(e, 'video')} className="hidden" />
+                        <input type="file" accept="image/*" ref={imageInputRef} onChange={handleFileSelect} className="hidden" />
 
                         <button onClick={() => imageInputRef.current?.click()} aria-label="Adicionar foto" className="p-2 hover:bg-brand-bg rounded-full transition-colors text-green-400"><PhotoIcon className="w-6 h-6" /></button>
-                        <button onClick={() => videoInputRef.current?.click()} aria-label="Adicionar vídeo" className="p-2 hover:bg-brand-bg rounded-full transition-colors text-blue-400"><VideoIcon className="w-6 h-6" /></button>
+                        <button onClick={handleVideoPrompt} aria-label="Adicionar vídeo" className="p-2 hover:bg-brand-bg rounded-full transition-colors text-blue-400"><VideoIcon className="w-6 h-6" /></button>
                     </div>
-                    <Button onClick={handleAddPost} className="px-6">Publicar</Button>
+                    <Button onClick={handleAddPost} className="px-6" disabled={isUploading}>
+                        {isUploading ? 'Publicando...' : 'Publicar'}
+                    </Button>
                 </div>
             </div>
 
@@ -217,7 +240,7 @@ const CommunityPage: FC = () => {
                             
                             <div className="my-3">
                                 {post.imageUrl && <img src={post.imageUrl} alt="Post content" className="rounded-lg w-full max-h-[500px] object-cover shadow-md" />}
-                                {post.videoUrl && <video controls src={post.videoUrl} className="rounded-lg w-full max-h-[500px] bg-black shadow-md" />}
+                                {post.videoUrl && <div className="aspect-video w-full shadow-lg rounded-lg overflow-hidden"><iframe className="w-full h-full" src={post.videoUrl.replace('watch?v=', 'embed/')} title="Video" allowFullScreen></iframe></div>}
                             </div>
 
                             <div className="flex items-center space-x-6 text-brand-text-light border-t border-brand-secondary mt-4 pt-3">

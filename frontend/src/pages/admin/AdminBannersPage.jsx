@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { ImageUpload } from '../../components/ui/ImageUpload';
 import { PhotoIcon, EditIcon, TrashIcon } from '../../components/Icons';
 
 const AdminBannersPage = () => {
@@ -74,7 +75,14 @@ const AdminBannersPage = () => {
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <Input label="Título" id="banner-title" type="text" value={title} onChange={e => setTitle(e.target.value)} required />
                         <Input label="Subtítulo" id="banner-subtitle" type="text" value={subtitle} onChange={e => setSubtitle(e.target.value)} required />
-                        <Input label="URL da Imagem" id="banner-image" type="text" value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://exemplo.com/imagem.jpg" required />
+                        
+                        <ImageUpload 
+                            label="Imagem do Banner" 
+                            value={imageUrl} 
+                            onChange={setImageUrl} 
+                            folder="banners"
+                        />
+
                         <Input label="URL do Link (opcional)" id="banner-link" type="text" value={linkUrl} onChange={e => setLinkUrl(e.target.value)} placeholder="https://exemplo.com/pagina" />
                         <div className="flex justify-end space-x-2 pt-4">
                             <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
